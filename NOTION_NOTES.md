@@ -226,150 +226,263 @@ sequenceDiagram
 
 ## 👥 7. Team Member Responsibilities & Presentation Preparation Guide
 
-> **Presentation Readiness Matrix**: This section details the assigned tasks and **extra newly added functionalities** for each team member. Each member must master their specific layer, understand how it interfaces with the others, and be prepared to present their live demo walkthrough and answer technical questions.
+> **Presentation Readiness Matrix**: Each team member gets a specific role, the exact files they need to study, their core technical responsibility, the **extra newly added functionalities**, and the talking points to present to trainers.
+
+### 🗺️ System Team Ownership Map
+
+```mermaid
+flowchart TD
+    subgraph UI_Tier["Client Presentation Tier (React 19 + TypeScript)"]
+        M1["Member 1: UI Dashboard & Health Overview"]
+        M2["Member 2: Interactive Grid & Issue Resolution"]
+    end
+
+    subgraph Gateway_Tier["API Gateway & Integration Tier"]
+        M3["Member 3: API Integration & File Ingestion"]
+    end
+
+    subgraph Intelligence_Tier["Quality Rules & Intelligence Tier"]
+        M4["Member 4: Core Validation Engine & Algorithms"]
+    end
+
+    subgraph Data_Tier["Backend & Persistence Tier (Spring Boot 4 + PostgreSQL 16)"]
+        M5["Member 5: Dynamic Database & Batch Streaming"]
+        M6["Member 6: Persistence, JPA Modeling & Audit Trail"]
+    end
+
+    M1 --> M3
+    M2 --> M3
+    M3 --> M5
+    M3 --> M6
+    M4 <--> M5
+    M4 <--> M6
+```
 
 ---
 
-### 👤 Member 1: Frontend Lead — UI/UX & Interactive Data Stewardship
-* **Functional Scope:** React 19 Frontend Architecture, Interactive Grid, Dynamic Modals & Remediation Workflows
-* **Primary Source Files:** `src/App.tsx`, `src/components/Navbar.tsx`, `src/components/DataExplorerView.tsx`, `src/components/AddColumnModal.tsx`, `src/components/DuplicateColumnResolverModal.tsx`, `src/components/AutoFixVerificationModal.tsx`, `src/components/ContextualDisambiguatorModal.tsx`
+## **Member 1: UI Dashboard & Health Overview Architect**
 
-#### 📋 Core Existing Responsibilities
-1. Executive Quality Dashboard: Overall quality score gauges, violation distributions, and severity counters.
-2. Interactive Spreadsheet Grid (`DataExplorerView`): Cell-level error highlighting, severity filtering, search, and inline cell editing.
-3. Remediation Drawer (`IssueResolutionDrawer`): Single-issue override and remediation with audit trail capture.
+### **🎯 Primary Mission**
 
-#### ⚡ Extra Assigned Functionalities to Learn & Master (New)
-1. **Dynamic Schema Extension Modal (`AddColumnModal.tsx`):**
-   - Enables users to introduce new schema attributes directly into existing datasets without re-uploading.
-   - **Smart Column Type Detection:** Auto-classifies new columns as `STRING`, `NUMBER`, `EMAIL`, `DATE`, `BOOLEAN`, `ALLOWED_VALUES`, `IDENTIFIER`, or `MULTI_VALUED`.
-   - **Multi-Valued Delimited Support:** Handles multi-value fields (e.g. `skills`, `certifications`, `tags`, `phone_numbers`) with configurable delimiters (`,`, `;`, `|`).
-   - Generates matching data quality rules on the fly and immediately attaches them to the active dataset.
-2. **Duplicate Header Resolver (`DuplicateColumnResolverModal.tsx`):**
-   - Automatically intercepts uploaded CSV files having identical header names across columns (e.g. duplicate `id` or `status` columns).
-   - Allows users to rename colliding headers, merge attributes, or disambiguate before database table generation.
-3. **Automated Fix Verification Preview (`AutoFixVerificationModal.tsx`):**
-   - Provides a side-by-side visual diff modal before auto-fixes are committed to PostgreSQL.
-   - Computes before-and-after values for common errors (e.g. sequential ID allocation, email format normalization, currency cleanup).
-   - Allows batch acceptance or selective rejection of proposed fixes.
-4. **Categorized Dataset Navigation (`Navbar.tsx`):**
-   - Two distinct `<optgroup>` categories: **✨ Enterprise Presets** (`HR & Employee Master`, `Motherson Automotive Parts`, `Financial Ledger & Orders`) and **📂 Database & Uploaded Files**.
-   - Preserves active selection in `localStorage` and smoothly cascades dataset changes down to the validation engine.
-5. **Contextual Disambiguator UI (`ContextualDisambiguatorModal.tsx`):**
-   - Explains how ambiguous values (e.g. string `"120"`) evaluate against multiple semantic domains (Department ID vs. Salary vs. Quantity).
+Owns the high-level user interface: application navigation, real-time database connection status, the quality metrics dashboard, and run comparison trends.
 
-#### 🎤 Presentation Talking Points & Demo Sequence
-- **Demo Step 1:** Open the dataset selector in the Navbar to show the structured grouping of Enterprise Presets vs uploaded files.
-- **Demo Step 2:** Navigate to Data Explorer, open the `Add Column` modal, define a multi-valued attribute (e.g. `certifications` with `;` delimiter), and demonstrate live schema generation.
-- **Demo Step 3:** Trigger the Auto-Fix Verification modal to highlight how human-in-the-loop validation prevents unintended data corruption.
-- **Key Technical Answer:** *"Why React 19? We utilize modern hooks, optimistic state updates for instant cell editing, and memoized tabular rendering to support 25,000+ records smoothly."*
+### **📂 Files & Directories to Master**
+
+- `src/App.tsx` *(Top-level state management, view switching, and backend data loading)*
+- `src/components/Navbar.tsx` *(Header, categorized dataset selector, connection status pill)*
+- `src/components/DashboardView.tsx` *(Health score dial, clean vs. failed counts, severity cards)*
+- `src/components/RunHistoryView.tsx` *(Execution timeline and side-by-side run delta comparison)*
+- `src/components/ContextualDisambiguatorModal.tsx` *(Value inspector tool)*
+
+### **🔍 What to Learn & Explain**
+
+1. **Application Lifecycle:** How `App.tsx` triggers `api.checkHealth()` on startup and displays `🟢 PostgreSQL 16 Connected` in `Navbar.tsx`.
+2. **Dashboard Visualizations:** How the health score is displayed (e.g., 85% green, 60% amber, <50% red) based on validation run metrics.
+3. **Run Comparison Engine:** How `RunHistoryView.tsx` computes the quality delta between two runs (`Health Score Progression`, `Defects Eliminated`).
+4. **Contextual Inspector:** How polymorphic values (like `"120"`) are evaluated against multiple columns to detect domain mismatches.
+5. **⚡ Extra Assigned Functionalities to Master:**
+   - **Categorized Dataset Navigation:** How `Navbar.tsx` groups files into `✨ Enterprise Presets` (`HR & Employee Master`, `Motherson Automotive Parts`, `Financial Ledger & Orders`) and `📂 Database & Uploaded Files`, maintaining stable option order and preventing text truncation.
+   - **State Persistence:** How `App.tsx` stores and retrieves active datasets and corresponding preset configurations via browser `localStorage` on page reloads.
+   - **Graceful Fallback Mode:** How the UI detects connection loss and seamlessly adapts without blocking user workflows.
+
+### **🎙️ Talking Points for Trainers**
+
+> *"I manage the client-side presentation layer. When a user opens SilentGuard, my code establishes the heartbeat check with the Spring Boot backend, displays the categorized dataset selector with enterprise presets, and renders the health score and execution timeline to track quality trends over time."*
 
 ---
 
-### 👤 Member 2: Backend Engineer — API Services & Distributed Batch Processing
-* **Functional Scope:** Spring Boot 4 REST API, Apache Commons CSV Streaming, Distributed Chunk Partitioning & Database Transaction Management
-* **Primary Source Files:** `DatasetController.java`, `SpringBatchPartitioningService.java`, `AuditController.java`, `HealthController.java`, `CsvImportService.java`
+## **Member 2: Interactive Grid & Issue Resolution Steward**
 
-#### 📋 Core Existing Responsibilities
-1. RESTful API Endpoints: Ingestion (`/api/datasets/upload`), rules management (`/api/rules`), and validation execution (`/api/validation/execute`).
-2. Apache Commons CSV Streaming: Memory-safe parsing of multipart CSV files.
-3. Health check controller and database connectivity monitoring.
+### **🎯 Primary Mission**
 
-#### ⚡ Extra Assigned Functionalities to Learn & Master (New)
-1. **High-Throughput Chunk Partitioning Service (`SpringBatchPartitioningService.java`):**
-   - Built to handle multi-gigabyte or millions-of-rows enterprise transfers without causing Java heap `OutOfMemoryError`.
-   - **Chunk-Oriented Processing:** Streams records in configurable memory-bounded chunks (e.g. 5,000 records per chunk) with constant O(1) memory consumption.
-   - **Range Partitioning & Parallel Workers:** Divides massive datasets across a pool of parallel worker threads (`DEFAULT_PARTITIONS = 4`).
-   - **Bulk JDBC Batch Updates:** Binds and executes parameter batches in single round-trips to PostgreSQL via `JdbcTemplate.batchUpdate`.
-   - **Skip & Fault Tolerance:** Isolates malformed lines or unparseable delimiters without aborting the entire pipeline execution.
-2. **Dedicated Partitioned Batch Endpoint (`POST /api/datasets/batch-process`):**
-   - Accepts parameters for file, `partitions`, and `chunkSize`.
-   - Computes throughput metrics: `totalRecords`, `totalChunks`, `executionTimeMs`, `throughputRecordsPerSec`, and `skippedDefectsCount`.
-3. **Full Audit History CRUD Endpoints (`AuditController.java`):**
-   - Added update (`PUT /api/audit/resolutions/{id}`) and delete (`DELETE /api/audit/resolutions/{id}`) endpoints.
-   - Enables data stewards to maintain, edit, or retract audit notes with automated timestamping (`updatedAt`).
-4. **Dataset Duplicate Prevention & In-Place Record Sync:**
-   - Cleans up historical duplicate records on ingestion and dynamically updates row arrays (`PUT /api/datasets/{id}/records`) for instant spreadsheet cell edits.
+Owns the tabular record explorer, cell-level defect flagging, in-place spreadsheet editing, and the data steward remediation workflow.
 
-#### 🎤 Presentation Talking Points & Demo Sequence
-- **Demo Step 1:** Walk through the `/api/datasets/batch-process` endpoint and explain chunk-oriented processing vs traditional bulk loading.
-- **Demo Step 2:** Explain the thread pool sizing (`Math.max(2, availableProcessors)`) and how partitions prevent database connection exhaustion.
-- **Demo Step 3:** Showcase the audit endpoint handling resolution logs and persisting remediation trails in PostgreSQL.
-- **Key Technical Answer:** *"Traditional APIs crash when processing 500MB CSV files because they load everything into memory. Our Spring Batch Partitioning Service streams 5,000-row chunks in parallel, guaranteeing constant O(1) memory overhead and sub-second chunk commit times."*
+### **📂 Files & Directories to Master**
+
+- `src/components/DataExplorerView.tsx` *(Spreadsheet grid, error badges, in-cell editing)*
+- `src/components/IssueResolutionDrawer.tsx` *(Slide-out drawer to comment and resolve defects)*
+- `src/components/ExportAuditView.tsx` *(CSV export & JSON compliance package generation)*
+- `src/utils/csvParser.ts` *(Client-side CSV utility formatting and downloads)*
+- `src/components/AutoFixVerificationModal.tsx` *(Extra: Auto-fix preview & diff verification modal)*
+- `src/components/AddColumnModal.tsx` *(Extra: Dynamic schema extension modal)*
+- `src/components/DuplicateColumnResolverModal.tsx` *(Extra: Header collision resolution modal)*
+
+### **🔍 What to Learn & Explain**
+
+1. **Cell Flagging Logic:** How the grid links individual rows and columns to `validation_issues` and colors failing cells in red/amber.
+2. **In-Place Row Editing:** How a user can double-click a defective cell, type a corrected value (e.g., changing `5000` to `50000`), and trigger an instant database update (`PUT /api/datasets/{id}/records`).
+3. **Data Steward Drawer:** How clicking a violation opens `IssueResolutionDrawer.tsx` to set a status (`FIXED_IN_SOURCE`, `WAIVED`) and record a comment.
+4. **Export Engine:** How clean records and audit logs are exported into CSV and structured JSON files for regulatory compliance.
+5. **⚡ Extra Assigned Functionalities to Master:**
+   - **Auto-Fix Verification Preview (`AutoFixVerificationModal.tsx`):** How proposed automated fixes (e.g. sequential unallocated worker IDs, email normalization) are displayed in a side-by-side diff modal before committing changes to PostgreSQL.
+   - **Dynamic Schema Extension (`AddColumnModal.tsx`):** How users can append new attributes directly into existing datasets, with smart type detection (`STRING`, `NUMBER`, `EMAIL`, `DATE`, `MULTI_VALUED` with configurable delimiters `,`, `;`, `|`) and automatic rule generation.
+   - **Duplicate Header Disambiguation (`DuplicateColumnResolverModal.tsx`):** How duplicate CSV headers are trapped and interactively renamed before staging.
+   - **Audit Record Management (`ExportAuditView.tsx`):** How users can edit comments and delete outdated resolution audit records with live backend synchronization.
+
+### **🎙️ Talking Points for Trainers**
+
+> *"I own the Data Explorer and issue remediation flow. My components highlight corrupted values directly in the tabular grid, allow data stewards to correct records in-place with instant re-validation, verify auto-fixes in a visual diff preview before database commit, and maintain a traceable audit history."*
 
 ---
 
-### 👤 Member 3: Data Quality Specialist — Deterministic Rule Engine & Scoring Algorithms
-* **Functional Scope:** Validation Rules Architecture, Continuous Health Scoring, Dual-Engine Client/Server Parity
-* **Primary Source Files:** `ValidationEngineService.java`, `src/services/validationEngine.ts`, `src/data/mockDatasets.ts`, `src/services/semanticDisambiguator.ts`
+## **Member 3: API Integration & File Ingestion Specialist**
 
-#### 📋 Core Existing Responsibilities
-1. Seven Core Deterministic Rule Types: `REQUIRED`, `UNIQUE`, `MIN_VALUE`, `MAX_VALUE`, `FORMAT`, `CROSS_FIELD`, and `REFERENTIAL_INTEGRITY`.
-2. Error categorizations: Critical, Error, Warning, and Info severity levels.
-3. Dual-engine client fallback executing validation directly in browser if backend is disconnected.
+### **🎯 Primary Mission**
 
-#### ⚡ Extra Assigned Functionalities to Learn & Master (New)
-1. **Graduated Continuous Health Score Algorithm:**
-   - Replaced simplistic penalties that swung wildly to 0% or 100% with a graduated continuous scoring formula:
+Owns the client-to-server bridge: drag-and-drop file upload, multipart HTTP requests, REST API client methods, CORS security, and server exception handling.
+
+### **📂 Files & Directories to Master**
+
+- `src/components/UploadModal.tsx` *(Drag-and-drop file upload, preview parser, preset suggester)*
+- `src/services/api.ts` *(Frontend REST API service layer with fetch calls)*
+- `backend/.../controller/DatasetController.java` *(Endpoints: `/api/datasets`, `/api/datasets/upload`, etc.)*
+- `backend/.../controller/AuditController.java` *(Audit trail REST endpoints)*
+- `backend/.../config/CorsConfig.java` *(Cross-Origin Resource Sharing configuration)*
+- `backend/.../config/GlobalExceptionHandler.java` *(Global REST error handler)*
+
+### **🔍 What to Learn & Explain**
+
+1. **Multipart Upload Flow:** How `UploadModal.tsx` packs a CSV into a `FormData` payload and sends it to `POST /api/datasets/upload`.
+2. **API Client Architecture:** How `api.ts` maps raw backend responses into strongly-typed TypeScript interfaces (`Dataset`, `ValidationRun`, `ValidationIssue`).
+3. **Security & CORS:** Why `CorsConfig.java` is required to allow requests between `http://localhost:3000` and `http://localhost:8080`.
+4. **Exception Handling:** How `GlobalExceptionHandler.java` catches `MaxUploadSizeExceededException` (file > 50MB) and `IllegalArgumentException` to return structured JSON errors with HTTP status codes.
+5. **⚡ Extra Assigned Functionalities to Master:**
+   - **Audit Trail CRUD Endpoints (`AuditController.java`):** How `PUT /api/audit/resolutions/{id}` and `DELETE /api/audit/resolutions/{id}` support full lifecycle stewardship of resolution logs.
+   - **Dataset Deduplication on Ingestion:** How `DatasetController.java` prevents duplicate records with identical filenames and cleans up legacy entries.
+   - **Dynamic Record Sync (`PUT /api/datasets/{id}/records`):** How updated cell arrays and modified schema columns are synchronized into PostgreSQL with zero downtime.
+   - **Compilation Integrity:** How import dependencies (`ArrayList`, `LinkedHashMap`) are resolved to maintain continuous uptime on `/api/datasets`.
+
+### **🎙️ Talking Points for Trainers**
+
+> *"I handle the integration bridge. I ensure files are securely transferred from the browser to Spring Boot via multipart REST APIs, manage CORS headers, map data into TypeScript contracts, maintain full audit trail lifecycle endpoints, and handle errors gracefully."*
+
+---
+
+## **Member 4: Core Validation Engine & Algorithm Specialist**
+
+### **🎯 Primary Mission**
+
+Owns the core intelligence of SilentGuard: server-side business rule execution, Schema Drift detection algorithms, and mathematical health scoring.
+
+### **📂 Files & Directories to Master**
+
+- `backend/.../service/ValidationEngineService.java` *(The server-side rule engine and scoring logic)*
+- `backend/.../controller/ValidationController.java` *(Endpoint: `POST /api/validation/execute`)*
+- `src/types/index.ts` *(RuleType definitions, severity rankings, issue models)*
+- `src/services/validationEngine.ts` *(Client-side fallback validation engine)*
+- `src/data/mockDatasets.ts` *(Validation rule presets and mock enterprise catalogs)*
+
+### **🔍 What to Learn & Explain**
+
+1. **Rule Processors:** Walk through how each rule type is evaluated:
+   - `REQUIRED`: Null/empty string check.
+   - `UNIQUE`: Pre-computed frequency hash-map count > 1.
+   - `MIN_VALUE` / `MAX_VALUE`: Numeric parsing and boundary comparison.
+   - `FORMAT`: Regex pattern matching (emails, ISO dates).
+   - `CROSS_FIELD`: Chronology checks (e.g. `delivery_date >= manufacturing_date`).
+   - `REFERENTIAL_INTEGRITY`: Lookup against approved enterprise catalog codes.
+2. **Schema Drift Detection:** How the engine detects when a CSV is missing an expected header column and generates a `CRITICAL` alert.
+3. **Health Scoring Formula:** How the 0–100% score is computed:
+   $$\text{Health Score} = 100 - \frac{(\text{Critical} \times 25 + \text{Error} \times 12 + \text{Warning} \times 4) \times 10}{\text{Total Records}}$$
+4. **Silent Failure Concept:** How source systems can return HTTP 200 while the data contains severe structural corruptions.
+5. **⚡ Extra Assigned Functionalities to Master:**
+   - **Graduated Continuous Health Score Algorithm:** How the continuous score formula balances clean pass ratios with weighted defect density:
      $$\text{PassRatio} = \frac{\text{PassedRecords}}{\text{TotalRecords}}$$
      $$\text{WeightedDefects} = (\text{Critical} \times 2.5) + (\text{Error} \times 1.0) + (\text{Warning} \times 0.2)$$
      $$\text{DefectDensity} = \frac{\text{WeightedDefects}}{\text{TotalRecords}}$$
      $$\text{DensityDeduction} = \min(30.0, \text{DefectDensity} \times 20.0)$$
      $$\text{HealthScore} = \text{round}(\text{PassRatio} \times (100.0 - \text{DensityDeduction}))$$
-   - Perfectly handles datasets with partial errors, ensuring scores accurately reflect overall batch health (e.g. 85% clean records with 2 minor warnings does not drop to 0%).
-2. **`CHECK_CONSTRAINT` Rule Implementation:**
-   - Evaluates conditional expressions and multi-token format standards across both Java backend and TypeScript client.
-3. **Multi-Valued Attribute Evaluation:**
-   - Parses delimited cells (e.g. `"Java, Python, C++"`) and verifies that each sub-token conforms to data dictionaries and format standards.
-4. **Contextual Semantic Disambiguator:**
-   - Evaluates values like `"120"` and classifies verdict as `VALID`, `INVALID`, `SUSPICIOUS`, or `UNMAPPED` based on column domain namespace.
-5. **Full Parity Between Java & TypeScript Engines:**
-   - Maintained identical rule evaluation semantics in `ValidationEngineService.java` and `validationEngine.ts` to ensure seamless offline demonstrations.
+     (Prevents sudden, unrealistic swings to 0% for datasets with mostly clean records).
+   - **`CHECK_CONSTRAINT` and Multi-Valued Attributes:** Evaluating conditional regex patterns across delimited entries (e.g. `skills`, `categories`).
+   - **Client-Server Parity:** Maintaining identical rule processing between `ValidationEngineService.java` and `validationEngine.ts`.
 
-#### 🎤 Presentation Talking Points & Demo Sequence
-- **Demo Step 1:** Explain why generic JSON schema validators fail on silent defects (e.g. negative salaries, dispatch date prior to manufacturing date).
-- **Demo Step 2:** Demonstrate the graduated health score calculation and how weighted defects prevent binary 0/100 swings.
-- **Demo Step 3:** Present the Contextual Value Inspector: type `120` and demonstrate how it is valid for department ID but invalid for a binary status or unit price.
-- **Key Technical Answer:** *"Silent failure detection requires deterministic semantic checks. A cell containing '-5000' is valid UTF-8 and valid integer, but violates business boundaries. Our engine traps the defect at row and column coordinate before downstream ETL ingestion."*
+### **🎙️ Talking Points for Trainers**
+
+> *"I designed the validation engine and algorithms. When a dataset is submitted, my service evaluates all 8 rule types, detects Schema Drift, computes the graduated health score, and flags record-level defects for the database."*
 
 ---
 
-### 👤 Member 4: Database Architect — PostgreSQL Relational Modeling & Schema Dynamics
-* **Functional Scope:** PostgreSQL 16 Persistence, Dynamic Staging Tables, Schema Evolution & Seed Datasets
-* **Primary Source Files:** `backend/src/main/resources/application.properties`, `DataInitializer.java`, `DatasetEntity.java`, `ValidationRuleEntity.java`, `ValidationRunEntity.java`, `ResolutionHistoryEntity.java`
+## **Member 5: Dynamic Database Architecture & CSV Streaming**
 
-#### 📋 Core Existing Responsibilities
-1. Core Entity Relational Schema: `datasets`, `validation_rules`, `validation_runs`, `validation_issues`, and `resolution_history`.
-2. Dynamic Table Generation (`ds_*`) via parameterized DDL and DML.
-3. PostgreSQL connection pooling via HikariCP.
+### **🎯 Primary Mission**
 
-#### ⚡ Extra Assigned Functionalities to Learn & Master (New)
-1. **Dynamic Staging Table Design Philosophy:**
-   - Why raw dynamic table columns are provisioned as `TEXT`: Dirty enterprise transfers frequently contain malformed data types (e.g., `"N/A"` or `"TBD"` in numeric columns). Storing cells as `TEXT` in dynamic staging tables (`ds_<filename>`) guarantees ingest never crashes, allowing the engine to isolate, flag, and remediate errors deterministically.
-2. **Full Tri-Preset Database Seeding Pipeline (`DataInitializer.java`):**
-   - Automatically provisions and runs initial validation on all three standard enterprise presets on application boot:
+Owns low-level CSV stream parsing, dynamic PostgreSQL DDL table generation, and secure SQL batch insertion.
+
+### **📂 Files & Directories to Master**
+
+- `backend/.../service/CsvImportService.java` *(CSV streaming, dynamic DDL, and parameterized inserts)*
+- `backend/.../service/SpringBatchPartitioningService.java` *(Extra: High-throughput chunk partitioning service)*
+- `backend/src/main/resources/application.properties` *(HikariCP pool, datasource URL, dialect)*
+- `backend/pom.xml` *(Apache Commons CSV and PostgreSQL driver dependencies)*
+
+### **🔍 What to Learn & Explain**
+
+1. **Dynamic SQL Table Generation:** Why and how `createTable()` runs:
+   ```sql
+   CREATE TABLE ds_<filename>_<timestamp>(_row_id SERIAL PRIMARY KEY, "col1" TEXT, "col2" TEXT);
+   ```
+2. **SQL Injection Prevention:** How column headers are sanitized (`sanitizeColumnName`) and values are inserted using parameterized placeholders (`?`) via `JdbcTemplate`.
+3. **Empty & Malformed CSV Handling:** How the parser rejects zero-byte files or files without headers with clear error messages.
+4. **Performance & Scalability:** How Apache Commons CSV streams records without loading multi-gigabyte files entirely into memory at once.
+5. **⚡ Extra Assigned Functionalities to Master:**
+   - **Spring Batch Partitioning Service (`SpringBatchPartitioningService.java`):**
+     - **Chunk-Oriented Processing:** Streams records in configurable memory-bounded chunks (`DEFAULT_CHUNK_SIZE = 5,000`) consuming constant $O(1)$ memory.
+     - **Range Partitioning & Worker Threads:** Splits massive files across parallel worker threads (`DEFAULT_PARTITIONS = 4`).
+     - **Bulk JDBC Batch Execution:** Commits batches in single round-trips via `JdbcTemplate.batchUpdate`.
+     - **Skip / Fault Tolerance:** Isolates unparseable lines without crashing long-running batch jobs.
+   - **Partitioned Batch Endpoint (`POST /api/datasets/batch-process`):** Returns real-time metrics including `throughputRecordsPerSec`, `totalChunks`, and `executionTimeMs`.
+
+### **🎙️ Talking Points for Trainers**
+
+> *"I am responsible for the dynamic data tier. Rather than dumping every CSV into a generic table, my service dynamically generates a strongly-isolated PostgreSQL table for each upload, sanitizes headers, and safely inserts rows using parameterized SQL and parallel chunk partitioning."*
+
+---
+
+## **Member 6: Persistence, JPA Modeling & Audit Trail Engineer**
+
+### **🎯 Primary Mission**
+
+Owns the relational data schema, JPA entities, repositories, automated startup database seeding, and rule configuration management.
+
+### **📂 Files & Directories to Master**
+
+- `backend/.../config/DataInitializer.java` *(Automated database seeder for rules and demo datasets)*
+- `backend/.../model/` *(All JPA entities: `DatasetEntity`, `ValidationRuleEntity`, `ValidationRunEntity`, `ValidationIssueEntity`, `ResolutionHistoryEntity`)*
+- `backend/.../repository/` *(Spring Data JPA repository interfaces)*
+- `backend/.../controller/RuleController.java` *(Endpoints: `GET /api/rules`, `PUT /api/rules/{id}/toggle`, etc.)*
+- `src/components/RuleConfiguratorView.tsx` *(Rule builder and preset selector UI)*
+
+### **🔍 What to Learn & Explain**
+
+1. **Relational Database Schema:** The purpose of the 5 core tables (`datasets`, `validation_rules`, `validation_runs`, `validation_issues`, `resolution_history`).
+2. **Automated Seeding:** How `DataInitializer` checks table counts on boot and automatically seeds business rules and demo datasets into PostgreSQL.
+3. **JPA Repositories:** How Spring Data JPA methods like `findByDatasetIdOrderByExecutedAtDesc()` generate efficient queries without manual boilerplate.
+4. **Rule Configuration Management:** How rules can be toggled on/off, added, or deleted live from the UI and saved directly to the database.
+5. **⚡ Extra Assigned Functionalities to Master:**
+   - **Automated Tri-Preset Seeding Pipeline (`DataInitializer.java`):** Provisions and executes initial validations on all three enterprise demo domains:
      - `employee_master_roster.csv` (HR Ops sync with missing emails, negative salary, out-of-range department ID).
-     - `motherson_parts_batch_dispatch.csv` (Automotive manufacturing MES with supplier codes, chronologically inverted delivery dates, and negative quantities).
-     - `financial_orders.csv` (Payment ledger with currency validations, negative amounts, and duplicate transaction IDs).
-3. **Database Integrity & Historical Duplicate Cleanup:**
-   - Implemented automated deduplication in `DatasetController` and `CsvImportService` to prevent redundant dataset entries while preserving historical validation runs.
-4. **Non-Destructive Remediation Audit Trail (`resolution_history`):**
-   - Maintains an immutable audit trace of every steward fix (who fixed it, when, original value, resolved value, action type).
+     - `motherson_parts_batch_dispatch.csv` (Automotive MES Quality Gateway with supplier codes, inverted delivery dates, and negative quantities).
+     - `financial_orders.csv` (Stripe Global Ledger with currency validations, negative amounts, and duplicate transactions).
+   - **Baseline Validation Runs:** Automatically runs validation on boot so initial health scores and issue counts are instantly available in PostgreSQL.
+   - **Repository Query Enhancements:** Added `findByFileNameOrderByCreatedAtDesc` in `DatasetRepository` to support automated deduplication.
+   - **Rule Reference Directory Expansion:** Allows dynamic updates to enterprise foreign-key reference lists (e.g., expanded department catalogs) directly persisting to PostgreSQL.
 
-#### 🎤 Presentation Talking Points & Demo Sequence
-- **Demo Step 1:** Show PostgreSQL tables in `psql` or pgAdmin: display both core metadata tables and the dynamic `ds_*` staging tables.
-- **Demo Step 2:** Highlight how `DataInitializer` seeds 21 validation rules and all 3 domain datasets automatically on boot.
-- **Demo Step 3:** Show how an inline cell correction in the UI updates the dynamic table row and logs an immutable entry in `resolution_history`.
-- **Key Technical Answer:** *"By decoupling raw ingest storage using TEXT staging tables from deterministic rule validation, SilentGuard ensures zero-downtime ETL pipelines. Data is captured 100% of the time, flagged with surgical precision, and remediated transparently."*
+### **🎙️ Talking Points for Trainers**
+
+> *"I maintain the relational schema, JPA entities, and database repositories. I built the `DataInitializer` that automatically prepares our database on first launch with 21 business rules and 3 enterprise presets, and manage the rule repository and audit persistence layer."*
 
 ---
 
-## 🎯 8. Team Presentation Checklist & Slide Allocation
+# **Team Presentation Checklist**
 
-| Slide / Section | Presenter | Key Focus & Visual Asset |
-| :--- | :--- | :--- |
-| **1. Executive Problem & Architecture** | **Member 1** (Frontend Lead) | The Silent Failure Problem, System Architecture Diagram, Navbar & Presets. |
-| **2. High-Throughput Ingestion & Batching** | **Member 2** (Backend Engineer) | Spring Batch Partitioning Service, Chunk-oriented processing, O(1) memory usage. |
-| **3. Deterministic Rules & Health Scoring** | **Member 3** (Data Quality Specialist) | 7 Rule Categories, Graduated Health Score Formula, Contextual Disambiguator. |
-| **4. Dynamic Database Staging & Auditability**| **Member 4** (Database Architect) | PostgreSQL Dynamic Tables (`ds_*`), Schema seeding, Audit Resolution History. |
-| **5. Live End-to-End Stewardship Demo** | **All Team Members** | Upload dirty CSV -> View flagged cells -> Auto-fix preview -> Persist to DB -> Export audit trail. |
+To deliver a cohesive demo to your trainers, follow this exact sequence:
+
+| Step | Presenter | Action to Show on Screen | Key Talking Point |
+| :---: | :--- | :--- | :--- |
+| **1** | **Member 1** | Open browser to `http://localhost:3000`. Point out `🟢 PostgreSQL 16 Connected` and explain the Dashboard health score dial. | *Lifecycle check, connection heartbeat, executive score visualization.* |
+| **2** | **Member 3** | Click **Upload CSV**. Drag and drop a sample CSV (e.g. `employee_master_roster.csv`). Explain the multipart HTTP upload. | *Multipart file streaming, CORS configuration, typed response mapping.* |
+| **3** | **Member 5** | Switch to pgAdmin 4 or terminal. Show the newly created dynamic table `ds_employee_master_roster_*` and query its rows. | *Dynamic DDL generation, TEXT columns for polymorphic ingest, parameterized batch inserts.* |
+| **4** | **Member 4** | Walk through the detected issues on screen: negative salary, missing email, duplicate ID. Explain the rule logic and health scoring formula. | *8 rule processors, Schema Drift detection, continuous weighted defect scoring.* |
+| **5** | **Member 2** | Open **Records & Exceptions** tab. Double-click a defective cell, fix the value in-place, open auto-fix preview, and save a resolution comment. | *Cell flagging, in-place editing, auto-fix verification diff, immutable audit trail.* |
+| **6** | **Member 6** | Open **Rules & Dictionary** tab. Toggle a rule off/on. Show the updated state in PostgreSQL `validation_rules` table and explain the audit trail. | *JPA entity lifecycle, automated multi-preset seeding, live rule repository updates.* |
+
