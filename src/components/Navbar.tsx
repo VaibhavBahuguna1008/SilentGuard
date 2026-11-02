@@ -14,6 +14,24 @@ import {
 import { Dataset, ValidationRun } from '../types';
 import { BackendHealth } from '../services/api';
 
+const PRESET_DEFINITIONS: Record<string, { label: string; presetId: string; description: string }> = {
+  'employee_master_roster.csv': {
+    label: 'HR & Employee Master',
+    presetId: 'preset-employee',
+    description: 'Human Resources & Roster Integrity'
+  },
+  'motherson_parts_batch_dispatch.csv': {
+    label: 'Motherson Automotive Parts',
+    presetId: 'preset-motherson-parts',
+    description: 'Automotive Manufacturing & Dispatch'
+  },
+  'financial_orders.csv': {
+    label: 'Financial Ledger & Orders',
+    presetId: 'preset-financial-orders',
+    description: 'Transactions & Currency Validation'
+  }
+};
+
 interface NavbarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
@@ -43,6 +61,59 @@ export const Navbar: React.FC<NavbarProps> = ({
   backendHealth
 }) => {
   const issueCount = latestRun?.totalIssuesCount ?? 0;
+
+  // Categorize and deduplicate datasets into Presets vs Uploaded/Database datasets
+  const { presetDatasets, customDatasets } = React.useMemo(() => {
+    const seenNames = new Set<string>();
+    const presetsList: Array<{ datasetId: string; displayLabel: string; presetId: string }> = [];
+    const customsList: Array<{ datasetId: string; displayLabel: string }> = [];
+
+    allDatasets.forEach((ds) => {
+      const nameKey = ds.fileName.trim().toLowerCase();
+      if (seenNames.has(nameKey)) return;
+      seenNames.add(nameKey);
+
+      const matchedPreset = Object.entries(PRESET_DEFINITIONS).find(
+        ([key]) => key.toLowerCase() === nameKey
+      )?.[1];
+
+      if (matchedPreset) {
+        presetsList.push({
+          datasetId: ds.datasetId,
+          displayLabel: `✨ ${matchedPreset.label} (${ds.rowCount.toLocaleString()} rows)`,
+          presetId: matchedPreset.presetId
+        });
+      } else {
+        customsList.push({
+          datasetId: ds.datasetId,
+          displayLabel: `📁 ${ds.fileName} (${ds.rowCount.toLocaleString()} rows)`
+        });
+      }
+    });
+
+    // Ensure activeDataset is present
+    if (activeDataset && !seenNames.has(activeDataset.fileName.trim().toLowerCase())) {
+      const activeNameKey = activeDataset.fileName.trim().toLowerCase();
+      const matchedPreset = Object.entries(PRESET_DEFINITIONS).find(
+        ([key]) => key.toLowerCase() === activeNameKey
+      )?.[1];
+
+      if (matchedPreset) {
+        presetsList.unshift({
+          datasetId: activeDataset.datasetId,
+          displayLabel: `✨ ${matchedPreset.label} (${activeDataset.rowCount.toLocaleString()} rows)`,
+          presetId: matchedPreset.presetId
+        });
+      } else {
+        customsList.unshift({
+          datasetId: activeDataset.datasetId,
+          displayLabel: `📁 ${activeDataset.fileName} (${activeDataset.rowCount.toLocaleString()} rows)`
+        });
+      }
+    }
+
+    return { presetDatasets: presetsList, customDatasets: customsList };
+  }, [allDatasets, activeDataset]);
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3, badge: issueCount > 0 ? issueCount : null },
@@ -81,21 +152,34 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Quick switcher and primary actions */}
-          <div className="flex items-center gap-2.5">
-            {allDatasets.length > 0 && (
-              <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs">
-                <Database className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          <div className="flex items-center gap-2">
+            {(presetDatasets.length > 0 || customDatasets.length > 0) && (
+              <div className="flex items-center gap-1.5 sm:gap-2 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs shadow-sm">
+                <Database className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
                 <select
                   value={activeDataset?.datasetId || ''}
                   onChange={(e) => onSelectDataset(e.target.value)}
-                  aria-label="Select active dataset"
-                  className="bg-transparent text-slate-200 font-medium focus:outline-none cursor-pointer max-w-[150px] sm:max-w-[200px] truncate"
+                  aria-label="Select active dataset or preset"
+                  className="bg-transparent text-slate-200 font-medium focus:outline-none cursor-pointer max-w-[170px] sm:max-w-[230px] md:max-w-[270px] truncate"
                 >
-                  {allDatasets.map((ds) => (
-                    <option key={ds.datasetId} value={ds.datasetId} className="bg-slate-900 text-slate-200">
-                      {ds.fileName} ({ds.rowCount} rows)
-                    </option>
-                  ))}
+                  {presetDatasets.length > 0 && (
+                    <optgroup label="✨ Enterprise Presets" className="bg-slate-900 text-indigo-400 font-semibold">
+                      {presetDatasets.map((opt) => (
+                        <option key={opt.datasetId} value={opt.datasetId} className="bg-slate-900 text-slate-200 font-normal">
+                          {opt.displayLabel}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {customDatasets.length > 0 && (
+                    <optgroup label="📂 Database & Uploaded Files" className="bg-slate-900 text-slate-400 font-semibold">
+                      {customDatasets.map((opt) => (
+                        <option key={opt.datasetId} value={opt.datasetId} className="bg-slate-900 text-slate-200 font-normal">
+                          {opt.displayLabel}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
                 {activeDataset?.reportedSuccess && (
                   <span 

@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface DatasetRepository extends JpaRepository<DatasetEntity, String> {
     List<DatasetEntity> findAllByOrderByCreatedAtDesc();
+    List<DatasetEntity> findByFileNameOrderByCreatedAtDesc(String fileName);
 }

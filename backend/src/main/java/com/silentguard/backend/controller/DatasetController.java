@@ -7,6 +7,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -17,15 +19,41 @@ public class DatasetController {
 
     private final DatasetRepository datasetRepository;
     private final CsvImportService csvImportService;
+    private final com.silentguard.backend.service.SpringBatchPartitioningService batchPartitioningService;
 
-    public DatasetController(DatasetRepository datasetRepository, CsvImportService csvImportService) {
+    public DatasetController(
+            DatasetRepository datasetRepository, 
+            CsvImportService csvImportService,
+            com.silentguard.backend.service.SpringBatchPartitioningService batchPartitioningService
+    ) {
         this.datasetRepository = datasetRepository;
         this.csvImportService = csvImportService;
+        this.batchPartitioningService = batchPartitioningService;
     }
 
     @GetMapping
     public ResponseEntity<List<DatasetEntity>> getAllDatasets() {
-        return ResponseEntity.ok(datasetRepository.findAllByOrderByCreatedAtDesc());
+        List<DatasetEntity> all = datasetRepository.findAllByOrderByCreatedAtDesc();
+        Map<String, DatasetEntity> uniqueByFilename = new LinkedHashMap<>();
+        List<DatasetEntity> duplicatesToDelete = new ArrayList<>();
+
+        for (DatasetEntity ds : all) {
+            String normName = ds.getFileName() != null ? ds.getFileName().trim().toLowerCase() : "";
+            if (!uniqueByFilename.containsKey(normName)) {
+                uniqueByFilename.put(normName, ds);
+            } else {
+                duplicatesToDelete.add(ds);
+            }
+        }
+
+        // Clean up any historical duplicate files in PostgreSQL
+        if (!duplicatesToDelete.isEmpty()) {
+            try {
+                datasetRepository.deleteAll(duplicatesToDelete);
+            } catch (Exception ignored) {}
+        }
+
+        return ResponseEntity.ok(new ArrayList<>(uniqueByFilename.values()));
     }
 
     @GetMapping("/{id}")
@@ -98,5 +126,26 @@ public class DatasetController {
         }
         datasetRepository.deleteById(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // Spring Batch Partitioned Processing Endpoint for Huge CSV files
+    @PostMapping("/batch-process")
+    public ResponseEntity<?> processBatchPartitioned(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "partitions", defaultValue = "4") int partitions,
+            @RequestParam(value = "chunkSize", defaultValue = "5000") int chunkSize
+    ) {
+        try {
+            String csvContent = new String(file.getBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            var summary = batchPartitioningService.processLargeCsvPartitioned(
+                    file.getOriginalFilename(),
+                    csvContent,
+                    partitions,
+                    chunkSize
+            );
+            return ResponseEntity.ok(summary);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
     }
 }

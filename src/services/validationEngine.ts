@@ -58,6 +58,37 @@ export function runValidation(
     }
   }
 
+  // Duplicate / Colliding Column Detection in Dataset Schema
+  const seenLowerCols: Record<string, string[]> = {};
+  for (const col of dataset.columns) {
+    const lower = col.toLowerCase();
+    if (!seenLowerCols[lower]) seenLowerCols[lower] = [];
+    seenLowerCols[lower].push(col);
+  }
+  for (const [lower, matchedCols] of Object.entries(seenLowerCols)) {
+    if (matchedCols.length > 1) {
+      issues.push({
+        issueId: `duplicate-col-${lower}-${Date.now()}`,
+        runId,
+        datasetId: dataset.datasetId,
+        rowNumber: 1,
+        columnName: matchedCols[0],
+        ruleId: 'schema-duplicate-column',
+        ruleName: 'Duplicate Column Collision',
+        ruleType: 'UNIQUE',
+        severity: 'CRITICAL',
+        foundValue: matchedCols.join(', '),
+        expectedCondition: 'All column identifiers in dataset schema must be unique',
+        errorMessage: `Schema Collision: Found duplicate/colliding columns [${matchedCols.join(', ')}]. Choose one to keep, rename, or merge.`,
+        simpleProblem: `Duplicate columns detected (${matchedCols.join(', ')})`,
+        simpleFix: 'Use the Duplicate Column Resolver to pick, merge, or rename one of the duplicate columns',
+        resolutionStatus: 'OPEN',
+        rowData: rows[0] || {},
+        category: 'Uniqueness'
+      });
+    }
+  }
+
   // Check unmapped columns for anomalies
   const ruleTargetColumns = new Set(activeRules.map(r => r.columnName));
   const newColumns = dataset.columns.filter(col => !ruleTargetColumns.has(col));
@@ -122,6 +153,18 @@ export function runValidation(
       const rawVal = row[col] ? String(row[col]).trim() : '';
       if (rawVal !== '') {
         columnValueFrequencies[col][rawVal] = (columnValueFrequencies[col][rawVal] || 0) + 1;
+      }
+    }
+  }
+
+  // Pre-compile regexes for FORMAT and CHECK_CONSTRAINT rules to maximize execution throughput on large datasets
+  const compiledRegexMap = new Map<string, RegExp | null>();
+  for (const rule of activeRules) {
+    if (rule.parameter && rule.parameter !== 'ATOMIC_1NF' && (rule.ruleType === 'FORMAT' || rule.ruleType === 'CHECK_CONSTRAINT')) {
+      try {
+        compiledRegexMap.set(rule.ruleId, new RegExp(rule.parameter));
+      } catch {
+        compiledRegexMap.set(rule.ruleId, null);
       }
     }
   }
@@ -227,29 +270,60 @@ export function runValidation(
           break;
         }
 
+        case 'CHECK_CONSTRAINT':
         case 'FORMAT': {
-          expectedCondition = `Must match standard format: ${rule.parameter || 'format'}`;
-          if (trimmedValue !== '' && rule.parameter) {
-            try {
-              const regex = new RegExp(rule.parameter);
-              if (!regex.test(trimmedValue)) {
-                isViolation = true;
-                if (colName.toLowerCase().includes('email')) {
-                  simpleProblem = `Invalid email address ('${trimmedValue}')`;
-                  simpleFix = `Use format name@company.com (needs '@' and domain)`;
-                  errorMessage = `'${trimmedValue}' is not a real email address because it is missing '@' or a domain name.`;
-                } else if (colName.toLowerCase().includes('date')) {
-                  simpleProblem = `Invalid date format ('${trimmedValue}')`;
-                  simpleFix = `Use calendar date format YYYY-MM-DD (e.g. 2026-10-15)`;
-                  errorMessage = `'${trimmedValue}' must be formatted as YYYY-MM-DD.`;
-                } else {
-                  simpleProblem = `Format pattern mismatch in '${colName}'`;
-                  simpleFix = `Correct text format to match standard`;
-                  errorMessage = `'${trimmedValue}' does not conform to the expected format rule.`;
+          expectedCondition = rule.domainRoot 
+            ? `Must be email with domain: ${rule.domainRoot}` 
+            : `Must match format constraint: ${rule.parameter || 'format'}`;
+
+          if (trimmedValue !== '') {
+            // Check for 1NF atomic violation if non-atomic multi-valued items appear in a scalar column
+            if (!rule.isMultiValued && (trimmedValue.includes(',') || trimmedValue.includes(';')) && (rule.category === 'Atomic / Normalization' || rule.parameter === 'ATOMIC_1NF')) {
+              isViolation = true;
+              simpleProblem = `Non-atomic multi-valued entry in scalar column ('${trimmedValue}')`;
+              simpleFix = `Enable 'Multi-Valued' option for this column or normalize into single values`;
+              errorMessage = `1NF Normalization Violation: Multi-valued list detected in scalar column '${colName}'. First Normal Form requires atomic scalar values unless explicitly declared multi-valued.`;
+              break;
+            }
+
+            const itemsToCheck = rule.isMultiValued 
+              ? trimmedValue.split(rule.delimiter || ',').map(s => s.trim()).filter(Boolean)
+              : [trimmedValue];
+
+            for (const item of itemsToCheck) {
+              // 1. Domain root check constraint (e.g. @company.com or specific root)
+              if (rule.domainRoot) {
+                const normalizedRoot = rule.domainRoot.startsWith('@') ? rule.domainRoot.toLowerCase() : `@${rule.domainRoot.toLowerCase()}`;
+                if (!item.toLowerCase().endsWith(normalizedRoot)) {
+                  isViolation = true;
+                  simpleProblem = `'${item}' violates domain check constraint (needs ${normalizedRoot})`;
+                  simpleFix = `Change email domain suffix to ${normalizedRoot}`;
+                  errorMessage = `Domain Check Constraint: '${item}' in '${colName}' does not belong to authorized domain '${normalizedRoot}'.`;
+                  break;
                 }
               }
-            } catch {
-              // Ignore invalid regex syntax silently
+
+              // 2. Regex format constraint
+              if (rule.parameter && rule.parameter !== 'ATOMIC_1NF') {
+                const regex = compiledRegexMap.get(rule.ruleId);
+                if (regex && !regex.test(item)) {
+                  isViolation = true;
+                  if (colName.toLowerCase().includes('email')) {
+                    simpleProblem = `Invalid email syntax in '${item}'`;
+                    simpleFix = `Use format name@company.com (needs '@' and valid domain root)`;
+                    errorMessage = `'${item}' is not a valid email address conforming to standard RFC syntax.`;
+                  } else if (colName.toLowerCase().includes('date')) {
+                    simpleProblem = `Invalid date format ('${item}')`;
+                    simpleFix = `Use calendar date format YYYY-MM-DD (e.g. 2026-10-15)`;
+                    errorMessage = `'${item}' must be formatted as YYYY-MM-DD.`;
+                  } else {
+                    simpleProblem = `Format constraint violation in '${item}'`;
+                    simpleFix = `Format text to satisfy check condition`;
+                    errorMessage = `'${item}' does not conform to the check constraint pattern '${rule.parameter}'.`;
+                  }
+                  break;
+                }
+              }
             }
           }
           break;
@@ -262,11 +336,18 @@ export function runValidation(
             .filter(Boolean);
           expectedCondition = `Must be one of: [${rule.parameter}]`;
           if (trimmedValue !== '' && allowed.length > 0) {
-            if (!allowed.includes(trimmedValue.toLowerCase())) {
-              isViolation = true;
-              simpleProblem = `Unrecognized ${colName} ('${trimmedValue}')`;
-              simpleFix = `Choose from approved options: ${rule.parameter}`;
-              errorMessage = `'${trimmedValue}' is not allowed. You must select one of: ${rule.parameter}.`;
+            const items = rule.isMultiValued
+              ? trimmedValue.split(rule.delimiter || ',').map(s => s.trim()).filter(Boolean)
+              : [trimmedValue];
+
+            for (const item of items) {
+              if (!allowed.includes(item.toLowerCase())) {
+                isViolation = true;
+                simpleProblem = `Unrecognized ${colName} value ('${item}')`;
+                simpleFix = `Choose from approved options: ${rule.parameter}`;
+                errorMessage = `'${item}' in '${colName}' is not an approved option. Allowed values: [${rule.parameter}].`;
+                break;
+              }
             }
           }
           break;
@@ -364,11 +445,29 @@ export function runValidation(
   const warningIssuesCount = issues.filter(i => i.severity === 'WARNING').length;
   const totalIssuesCount = issues.length;
 
-  // Compute health score (0 - 100%)
+  // Compute realistic, graduated health score (0 - 100%)
+  // Avoids wild swings to 0 or 100 by combining clean record pass-rate with weighted defect density
   let healthScore = 100;
   if (dataset.rowCount > 0) {
-    const rawPenalty = (criticalIssuesCount * 25 + errorIssuesCount * 12 + warningIssuesCount * 4) / dataset.rowCount;
-    healthScore = Math.max(0, Math.min(100, Math.round(100 - rawPenalty * 10)));
+    if (totalIssuesCount === 0) {
+      healthScore = 100;
+    } else if (passedRecords === 0) {
+      healthScore = 0;
+    } else {
+      // Base ratio of records that are completely clean
+      const passRatio = passedRecords / dataset.rowCount;
+
+      // Weighted defect density (Critical: 2.5x, Error: 1.0x, Warning: 0.2x)
+      const weightedDefects = (criticalIssuesCount * 2.5) + (errorIssuesCount * 1.0) + (warningIssuesCount * 0.2);
+      const defectDensity = weightedDefects / dataset.rowCount;
+
+      // Density deduction capped at 30% to anchor primarily on pass-rate
+      const densityDeduction = Math.min(30, defectDensity * 20);
+
+      // Composite continuous score
+      const calculated = Math.round(passRatio * (100 - densityDeduction));
+      healthScore = Math.max(1, Math.min(99, calculated));
+    }
   }
 
   let runStatus: 'PASSED' | 'FAILED' | 'WARNING' = 'PASSED';

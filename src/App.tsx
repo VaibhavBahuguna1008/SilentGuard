@@ -22,36 +22,63 @@ import {
   DEFAULT_EMPLOYEE_RULES, 
   MOTHERSON_PARTS_CSV, 
   MOTHERSON_PARTS_RULES, 
+  FINANCIAL_ORDERS_CSV,
   RULE_PRESETS 
 } from './data/mockDatasets';
 import { createDatasetFromCsv } from './utils/csvParser';
 import { runValidation as clientRunValidation } from './services/validationEngine';
 import { api, BackendHealth } from './services/api';
 
+// Baseline demo datasets always available as options
+const SEED_DATASETS: Dataset[] = [
+  createDatasetFromCsv(
+    'employee_master_roster.csv',
+    EMPLOYEE_CSV,
+    'HR Ops Sync',
+    'Workday HCM Cloud',
+    true
+  ),
+  createDatasetFromCsv(
+    'motherson_parts_batch_dispatch.csv',
+    MOTHERSON_PARTS_CSV,
+    'MES Quality Gateway',
+    'Motherson Shopfloor MES',
+    true
+  ),
+  createDatasetFromCsv(
+    'financial_orders.csv',
+    FINANCIAL_ORDERS_CSV,
+    'Payment Gateway Batch',
+    'Stripe Global Ledger',
+    true
+  )
+];
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [backendHealth, setBackendHealth] = useState<BackendHealth | null>(null);
 
   const [datasets, setDatasets] = useState<Dataset[]>(() => {
-    const initialEmployee = createDatasetFromCsv(
-      'employee_master_roster.csv',
-      EMPLOYEE_CSV,
-      'HR Ops Sync',
-      'Workday HCM Cloud',
-      true
-    );
-    const initialMotherson = createDatasetFromCsv(
-      'motherson_parts_batch_dispatch.csv',
-      MOTHERSON_PARTS_CSV,
-      'MES Quality Gateway',
-      'Motherson Shopfloor MES',
-      true
-    );
-    return [initialEmployee, initialMotherson];
+    return [...SEED_DATASETS];
   });
 
-  const [activeDatasetId, setActiveDatasetId] = useState<string>(() => datasets[0]?.datasetId || '');
+  const [activeDatasetId, setActiveDatasetId] = useState<string>(() => {
+    try {
+      const savedId = localStorage.getItem('silentguard_active_dataset_id');
+      const savedName = localStorage.getItem('silentguard_active_dataset_name');
+      if (savedId || savedName) {
+        const found = SEED_DATASETS.find(d => 
+          (savedId && d.datasetId === savedId) || 
+          (savedName && d.fileName.trim().toLowerCase() === savedName.trim().toLowerCase())
+        );
+        if (found) return found.datasetId;
+      }
+    } catch {}
+    return SEED_DATASETS[0]?.datasetId || '';
+  });
+
   const [rules, setRules] = useState<ValidationRule[]>(() => [...DEFAULT_EMPLOYEE_RULES]);
+  const [activePresetId, setActivePresetId] = useState<string>('preset-employee');
   const [runs, setRuns] = useState<ValidationRun[]>([]);
   const [currentIssues, setCurrentIssues] = useState<ValidationIssue[]>([]);
   const [resolutionHistories, setResolutionHistories] = useState<ResolutionHistory[]>([
@@ -84,32 +111,95 @@ export default function App() {
         if (health) {
           // Fetch datasets from PostgreSQL
           const dbDatasets = await api.fetchDatasets();
-          let effectiveDatasets = datasets;
+          
+          // Merge datasets from PostgreSQL and seed datasets:
+          // 1. PostgreSQL datasets take precedence (contain persisted uploads)
+          // 2. Any seed dataset not yet in PostgreSQL is preserved so options are never missing
+          const mergedDatasets: Dataset[] = [];
+          const seenNames = new Set<string>();
+
           if (dbDatasets && dbDatasets.length > 0) {
-            setDatasets(dbDatasets);
-            setActiveDatasetId(dbDatasets[0].datasetId);
-            effectiveDatasets = dbDatasets;
+            for (const ds of dbDatasets) {
+              const norm = ds.fileName.trim().toLowerCase();
+              if (!seenNames.has(norm)) {
+                seenNames.add(norm);
+                mergedDatasets.push(ds);
+              }
+            }
           }
 
+          for (const seed of SEED_DATASETS) {
+            const norm = seed.fileName.trim().toLowerCase();
+            if (!seenNames.has(norm)) {
+              seenNames.add(norm);
+              mergedDatasets.push(seed);
+            }
+          }
+
+          setDatasets(mergedDatasets);
+
+          // Restore recent used dataset from localStorage or active state
+          let recentId: string | null = null;
+          let recentName: string | null = null;
+          try {
+            recentId = localStorage.getItem('silentguard_active_dataset_id');
+            recentName = localStorage.getItem('silentguard_active_dataset_name');
+          } catch {}
+
+          let selected = mergedDatasets.find(d => 
+            (recentId && d.datasetId === recentId) || 
+            (recentName && d.fileName.trim().toLowerCase() === recentName.trim().toLowerCase())
+          );
+
+          if (!selected) {
+            selected = mergedDatasets.find(d => d.datasetId === activeDatasetId) || mergedDatasets[0];
+          }
+
+          if (selected) {
+            setActiveDatasetId(selected.datasetId);
+            try {
+              localStorage.setItem('silentguard_active_dataset_id', selected.datasetId);
+              localStorage.setItem('silentguard_active_dataset_name', selected.fileName);
+            } catch {}
+          }
+
+          const effectiveDatasets = mergedDatasets;
           const datasetsMap = new Map<string, string>();
           effectiveDatasets.forEach(d => datasetsMap.set(d.datasetId, d.fileName));
 
           // Fetch rules from PostgreSQL
           const dbRules = await api.fetchRules();
-          if (dbRules && dbRules.length > 0) {
-            setRules(dbRules);
+          let effectiveRules = dbRules && dbRules.length > 0 ? dbRules : rules;
+          if (selected) {
+            const fn = selected.fileName.toLowerCase();
+            if (selected.columns.includes('employee_id') || selected.columns.includes('salary') || fn.includes('employee')) {
+              effectiveRules = [...DEFAULT_EMPLOYEE_RULES];
+              setActivePresetId('preset-employee');
+            } else if (selected.columns.includes('part_number') || selected.columns.includes('batch_id') || fn.includes('motherson')) {
+              effectiveRules = [...MOTHERSON_PARTS_RULES];
+              setActivePresetId('preset-motherson-parts');
+            } else if (selected.columns.includes('order_id') || selected.columns.includes('total_amount') || fn.includes('financial')) {
+              const finPreset = RULE_PRESETS.find(p => p.id === 'preset-financial-orders');
+              if (finPreset) effectiveRules = [...finPreset.rules];
+              setActivePresetId('preset-financial-orders');
+            }
           }
+          setRules(effectiveRules);
 
           // Fetch runs and audit history
           const dbRuns = await api.fetchRuns(undefined, datasetsMap);
           if (dbRuns && dbRuns.length > 0) {
             setRuns(dbRuns);
-            // Fetch issues for the latest run of the active dataset
-            const latestForActive = dbRuns.find(r => r.datasetId === effectiveDatasets[0].datasetId) || dbRuns[0];
-            const issues = await api.fetchRunIssues(latestForActive.runId);
-            setCurrentIssues(issues);
-          } else if (effectiveDatasets.length > 0) {
-            handleExecuteValidation(effectiveDatasets[0], dbRules || rules);
+            // Fetch issues for the recent active dataset if available
+            const latestForActive = dbRuns.find(r => r.datasetId === selected?.datasetId);
+            if (latestForActive) {
+              const issues = await api.fetchRunIssues(latestForActive.runId);
+              setCurrentIssues(issues);
+            } else if (selected) {
+              handleExecuteValidation(selected, effectiveRules);
+            }
+          } else if (selected) {
+            handleExecuteValidation(selected, effectiveRules);
           }
 
           const dbHistory = await api.fetchAuditHistory();
@@ -162,13 +252,27 @@ export default function App() {
     const chosen = datasets.find(d => d.datasetId === id);
     if (!chosen) return;
 
+    try {
+      localStorage.setItem('silentguard_active_dataset_id', chosen.datasetId);
+      localStorage.setItem('silentguard_active_dataset_name', chosen.fileName);
+    } catch {}
+
     // Load matching preset if applicable
     let newRules = [...rules];
-    if (chosen.columns.includes('employee_id') || chosen.columns.includes('salary')) {
+    let detectedPresetId = '';
+    const fn = chosen.fileName.toLowerCase();
+    if (chosen.columns.includes('employee_id') || chosen.columns.includes('salary') || fn.includes('employee')) {
       newRules = [...DEFAULT_EMPLOYEE_RULES];
-    } else if (chosen.columns.includes('part_number') || chosen.columns.includes('batch_id')) {
+      detectedPresetId = 'preset-employee';
+    } else if (chosen.columns.includes('part_number') || chosen.columns.includes('batch_id') || fn.includes('motherson')) {
       newRules = [...MOTHERSON_PARTS_RULES];
+      detectedPresetId = 'preset-motherson-parts';
+    } else if (chosen.columns.includes('order_id') || chosen.columns.includes('total_amount') || fn.includes('financial')) {
+      const finPreset = RULE_PRESETS.find(p => p.id === 'preset-financial-orders');
+      if (finPreset) newRules = [...finPreset.rules];
+      detectedPresetId = 'preset-financial-orders';
     }
+    if (detectedPresetId) setActivePresetId(detectedPresetId);
     setRules(newRules);
 
     // Look for existing runs for this dataset
@@ -212,6 +316,21 @@ export default function App() {
     handleExecuteValidation(activeDataset, updated);
   };
 
+  const handleAddMultipleRules = async (newRules: ValidationRule[]) => {
+    const updated = [...newRules, ...rules];
+    setRules(updated);
+
+    for (const rule of newRules) {
+      try {
+        await api.saveRule(rule);
+      } catch (e) {
+        console.warn('Rule save backend sync failed:', e);
+      }
+    }
+
+    handleExecuteValidation(activeDataset, updated);
+  };
+
   const handleDeleteRule = async (ruleId: string) => {
     const updated = rules.filter(r => r.ruleId !== ruleId);
     setRules(updated);
@@ -227,10 +346,30 @@ export default function App() {
 
   const handleApplyPreset = (presetId: string) => {
     const preset = RULE_PRESETS.find(p => p.id === presetId);
-    if (preset) {
-      setRules([...preset.rules]);
-      handleExecuteValidation(activeDataset, [...preset.rules]);
+    if (!preset) return;
+
+    setActivePresetId(presetId);
+    setRules([...preset.rules]);
+
+    // Align with the corresponding demo dataset if available
+    const matchingDataset = datasets.find(d => {
+      const name = d.fileName.toLowerCase();
+      if (presetId === 'preset-employee') return name.includes('employee');
+      if (presetId === 'preset-motherson-parts') return name.includes('motherson') || name.includes('parts');
+      if (presetId === 'preset-financial-orders') return name.includes('financial') || name.includes('order');
+      return false;
+    });
+
+    const targetDataset = matchingDataset || activeDataset;
+    if (matchingDataset && matchingDataset.datasetId !== activeDatasetId) {
+      setActiveDatasetId(matchingDataset.datasetId);
+      try {
+        localStorage.setItem('silentguard_active_dataset_id', matchingDataset.datasetId);
+        localStorage.setItem('silentguard_active_dataset_name', matchingDataset.fileName);
+      } catch {}
     }
+
+    handleExecuteValidation(targetDataset, [...preset.rules]);
   };
 
   // Update rule reference list (e.g. when department directory expands)
@@ -264,11 +403,22 @@ export default function App() {
 
   // Add new uploaded dataset (persisted in PostgreSQL)
   const handleDatasetCreated = (newDataset: Dataset, suggestedPresetId?: string) => {
-    setDatasets(prev => [newDataset, ...prev]);
+    // Replace any previous dataset with the same filename to ensure no duplicates
+    const normName = newDataset.fileName.trim().toLowerCase();
+    setDatasets(prev => [
+      newDataset,
+      ...prev.filter(d => d.fileName.trim().toLowerCase() !== normName)
+    ]);
     setActiveDatasetId(newDataset.datasetId);
+
+    try {
+      localStorage.setItem('silentguard_active_dataset_id', newDataset.datasetId);
+      localStorage.setItem('silentguard_active_dataset_name', newDataset.fileName);
+    } catch {}
 
     let nextRules = [...rules];
     if (suggestedPresetId) {
+      setActivePresetId(suggestedPresetId);
       const preset = RULE_PRESETS.find(p => p.id === suggestedPresetId);
       if (preset) {
         nextRules = [...preset.rules];
@@ -304,6 +454,53 @@ export default function App() {
       await api.recordResolution(newHistory);
     } catch (e) {
       console.warn('Resolution history backend sync failed:', e);
+    }
+  };
+
+  // Edit existing audit log status & comment
+  const handleEditAuditLog = async (resolutionId: string, status: ResolutionStatus, comment: string) => {
+    let targetIssueId: string | undefined;
+
+    setResolutionHistories(prev => prev.map(log => {
+      if (log.resolutionId === resolutionId) {
+        targetIssueId = log.issueId;
+        return {
+          ...log,
+          resolutionStatus: status,
+          resolutionComment: comment,
+          updatedAt: new Date().toISOString()
+        };
+      }
+      return log;
+    }));
+
+    if (targetIssueId) {
+      setCurrentIssues(prev => prev.map(i => i.issueId === targetIssueId ? { ...i, resolutionStatus: status } : i));
+    }
+
+    try {
+      const found = resolutionHistories.find(h => h.resolutionId === resolutionId);
+      if (found) {
+        await api.updateResolution({
+          ...found,
+          resolutionStatus: status,
+          resolutionComment: comment,
+          updatedAt: new Date().toISOString()
+        });
+      }
+    } catch (e) {
+      console.warn('Resolution history update backend sync failed:', e);
+    }
+  };
+
+  // Delete an audit log
+  const handleDeleteAuditLog = async (resolutionId: string) => {
+    setResolutionHistories(prev => prev.filter(log => log.resolutionId !== resolutionId));
+
+    try {
+      await api.deleteResolution(resolutionId);
+    } catch (e) {
+      console.warn('Resolution history delete backend sync failed:', e);
     }
   };
 
@@ -352,6 +549,7 @@ export default function App() {
               setDisambiguatorValue(val);
               setIsDisambiguatorOpen(true);
             }}
+            onAddMultipleRules={handleAddMultipleRules}
           />
         )}
 
@@ -381,6 +579,8 @@ export default function App() {
             issues={currentIssues}
             rules={rules}
             resolutionHistories={resolutionHistories}
+            onEditAuditLog={handleEditAuditLog}
+            onDeleteAuditLog={handleDeleteAuditLog}
           />
         )}
       </main>

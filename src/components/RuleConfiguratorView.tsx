@@ -311,6 +311,45 @@ export const RuleConfiguratorView: React.FC<RuleConfiguratorViewProps> = ({
             ))}
           </div>
 
+          {/* Deterministic Severity Classification Standard Guide */}
+          <div className="bg-slate-950/70 border border-slate-800/90 rounded-2xl p-4 text-xs">
+            <div className="flex items-center justify-between mb-2 pb-2 border-b border-slate-800/60">
+              <span className="font-bold text-slate-200 flex items-center space-x-2">
+                <ShieldCheck className="w-4 h-4 text-indigo-400" />
+                <span>Deterministic Severity Classification Standard</span>
+              </span>
+              <span className="text-[11px] text-slate-500 font-mono">
+                How SilentGuard isolates defects
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-[11px]">
+              <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/25">
+                <span className="font-bold text-rose-300 block mb-1">CRITICAL</span>
+                <p className="text-slate-300 text-[10px] leading-relaxed">
+                  <strong>Fatal Ingest Barriers:</strong> Missing surrogate primary keys, duplicate IDs in UNIQUE columns, missing schema headers, negative monetary salaries.
+                </p>
+              </div>
+              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25">
+                <span className="font-bold text-amber-300 block mb-1">ERROR</span>
+                <p className="text-slate-300 text-[10px] leading-relaxed">
+                  <strong>Business Logic Defects:</strong> Malformed email syntax / domain root check failures, unapproved department IDs, delivery before manufacturing dates.
+                </p>
+              </div>
+              <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/25">
+                <span className="font-bold text-blue-300 block mb-1">WARNING</span>
+                <p className="text-slate-300 text-[10px] leading-relaxed">
+                  <strong>Suspicious Anomalies:</strong> Non-atomic multi-valued lists (1NF violations) in scalar fields, unmapped completely empty columns, near-boundary values.
+                </p>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-800/40 border border-slate-700/40">
+                <span className="font-bold text-slate-400 block mb-1">INFO</span>
+                <p className="text-slate-400 text-[10px] leading-relaxed">
+                  <strong>Informational Notices:</strong> Column header formatting suggestions, whitespace trimming advisories, non-standard capitalization.
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Rules Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredRules.map((rule) => {
@@ -1029,16 +1068,16 @@ export const RuleConfiguratorView: React.FC<RuleConfiguratorViewProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 font-medium mb-1">Severity</label>
+                  <label className="block text-slate-300 font-medium mb-1">Severity Classification</label>
                   <select
                     value={severity}
                     onChange={(e) => setSeverity(e.target.value as Severity)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500 font-mono text-xs"
                   >
-                    <option value="CRITICAL">CRITICAL (Halts processing)</option>
-                    <option value="ERROR">ERROR (Data defect)</option>
-                    <option value="WARNING">WARNING (Suspicious)</option>
-                    <option value="INFO">INFO (Notice)</option>
+                    <option value="CRITICAL">CRITICAL (Halts processing / Fatal PK or missing identity)</option>
+                    <option value="ERROR">ERROR (Business defect / Format or domain check violation)</option>
+                    <option value="WARNING">WARNING (Anomaly / 1NF non-atomic multi-value warning)</option>
+                    <option value="INFO">INFO (Notice / Formatting recommendation)</option>
                   </select>
                 </div>
 

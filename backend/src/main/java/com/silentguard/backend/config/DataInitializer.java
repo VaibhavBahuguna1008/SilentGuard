@@ -158,6 +158,32 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void seedInitialDatasets() {
+        if (datasetRepository.findByFileNameOrderByCreatedAtDesc("financial_orders.csv").isEmpty()) {
+            String financialCsv =
+                    "order_id,customer_id,order_date,total_amount,currency,fulfillment_status\n" +
+                    "ORD-5001,CUST-901,2026-10-01,1250.00,USD,COMPLETED\n" +
+                    "ORD-5002,CUST-902,2026-10-02,3400.50,USD,COMPLETED\n" +
+                    "ORD-5003,CUST-903,2026-10-02,-890.00,USD,PROCESSING\n" +
+                    "ORD-5004,,2026-10-03,450.25,USD,COMPLETED\n" +
+                    "ORD-5005,CUST-905,2026-10-04,6120.00,INVALID_CURRENCY,COMPLETED\n" +
+                    "ORD-5005,CUST-906,2026-10-04,230.00,USD,REFUNDED\n" +
+                    "ORD-5007,CUST-907,2026-10-05,1780.00,USD,COMPLETED\n" +
+                    "ORD-5008,CUST-908,2026-10-05,9500.00,USD,COMPLETED";
+            try {
+                DatasetEntity finDataset = csvImportService.processCsvContent(
+                        "financial_orders.csv",
+                        financialCsv,
+                        "Payment Gateway Batch",
+                        "Stripe Global Ledger"
+                );
+                List<ValidationRuleEntity> allRules = ruleRepository.findByEnabled(true);
+                validationEngineService.runValidationOnDataset(finDataset, allRules);
+                log.info("Imported demo financial orders dataset: {}", finDataset.getDatasetId());
+            } catch (Exception e) {
+                log.warn("Could not seed financial orders dataset: {}", e.getMessage());
+            }
+        }
+
         if (datasetRepository.count() > 0) {
             log.info("Datasets already present in PostgreSQL database ({})", datasetRepository.count());
             return;

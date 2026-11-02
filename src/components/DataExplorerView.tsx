@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Search, 
   Filter, 
@@ -15,13 +15,20 @@ import {
   Info, 
   Check, 
   FileSpreadsheet,
-  Sliders
+  Sliders,
+  History,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react';
-import { Dataset, ValidationIssue } from '../types';
+import { Dataset, ValidationIssue, ValidationRule } from '../types';
 import { downloadTextFile, exportDatasetToCsv } from '../utils/csvParser';
 import { inferColumnSemanticDomain } from '../services/semanticDisambiguator';
-import { getFieldDefinition } from '../data/mockDatasets';
+import { getFieldDefinition, MASTER_DEPARTMENT_CATALOG } from '../data/mockDatasets';
 import { AutoFixVerificationModal } from './AutoFixVerificationModal';
+import { AddColumnModal, AddColumnResult } from './AddColumnModal';
+import { DuplicateColumnResolverModal } from './DuplicateColumnResolverModal';
 
 interface DataExplorerViewProps {
   dataset: Dataset;
@@ -30,6 +37,7 @@ interface DataExplorerViewProps {
   onUpdateDatasetRecords: (updatedRecords: Record<string, string>[], updatedColumns?: string[]) => void;
   onRunValidation: () => void;
   onOpenDisambiguatorWithValue?: (val: string) => void;
+  onAddMultipleRules?: (rules: ValidationRule[]) => void;
 }
 
 export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
@@ -39,6 +47,7 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
   onUpdateDatasetRecords,
   onRunValidation,
   onOpenDisambiguatorWithValue,
+  onAddMultipleRules,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMode, setFilterMode] = useState<'ALL' | 'ISSUES_ONLY' | 'CLEAN_ONLY'>('ALL');
@@ -48,14 +57,19 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
   const [hoveredCell, setHoveredCell] = useState<{ rowIndex: number; colName: string } | null>(null);
   const [showExceptionsPanel, setShowExceptionsPanel] = useState<boolean>(true);
 
-  // Dynamic Column Addition State
+  // Dynamic Column Addition & Duplicate Resolver State
   const [isAddColModalOpen, setIsAddColModalOpen] = useState(false);
-  const [newColName, setNewColName] = useState('');
-  const [newColDefaultVal, setNewColDefaultVal] = useState('');
+  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
   const [hasAppliedFixes, setHasAppliedFixes] = useState(false);
   const [isAutoFixModalOpen, setIsAutoFixModalOpen] = useState(false);
 
-  // Map issues by rowNumber and columnName for instant cell lookup
+  // Pagination states for responsive handling of 25,000+ records
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(50);
+  const [exceptionsPage, setExceptionsPage] = useState<number>(1);
+  const exceptionsPerPage = 12;
+
+  // Map issues by rowNumber and columnName for instant O(1) cell lookup
   const issueMap = useMemo(() => {
     const map = new Map<string, ValidationIssue[]>();
     for (const issue of issues) {
@@ -68,13 +82,55 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
     return map;
   }, [issues]);
 
-  // Set of row numbers with issues
+  // Set of row numbers with issues for instant O(1) lookup
   const rowsWithIssues = useMemo(() => {
     return new Set(issues.map(i => i.rowNumber));
   }, [issues]);
 
-  // Filtered rows
+  // Pre-index issues by rowNumber for instant O(1) row queries
+  const issuesByRowNumber = useMemo(() => {
+    const map = new Map<number, ValidationIssue[]>();
+    for (const issue of issues) {
+      const list = map.get(issue.rowNumber) || [];
+      list.push(issue);
+      map.set(issue.rowNumber, list);
+    }
+    return map;
+  }, [issues]);
+
+  // Pre-index severities by rowNumber for instant O(1) severity filtering (eliminates O(N*M) scanning on 25,000 rows)
+  const severitiesByRow = useMemo(() => {
+    const map = new Map<number, Set<string>>();
+    for (const issue of issues) {
+      let set = map.get(issue.rowNumber);
+      if (!set) {
+        set = new Set<string>();
+        map.set(issue.rowNumber, set);
+      }
+      set.add(issue.severity);
+    }
+    return map;
+  }, [issues]);
+
+  // Pre-index issue counts by column name for instant O(1) header counts
+  const issuesCountByCol = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const issue of issues) {
+      map.set(issue.columnName, (map.get(issue.columnName) || 0) + 1);
+    }
+    return map;
+  }, [issues]);
+
+  // Reset pagination to page 1 whenever filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterMode, severityFilter, dataset.datasetId]);
+
+  // Filtered rows (optimized O(1) inner checks)
   const filteredRows = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    const hasSearch = term !== '';
+
     return dataset.rawData
       .map((row, idx) => ({ row, rowNumber: idx + 1, originalIndex: idx }))
       .filter(({ row, rowNumber }) => {
@@ -83,12 +139,11 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
         if (filterMode === 'CLEAN_ONLY' && hasIssue) return false;
 
         if (severityFilter !== 'ALL') {
-          const rowIssues = issues.filter(i => i.rowNumber === rowNumber);
-          if (!rowIssues.some(i => i.severity === severityFilter)) return false;
+          const rowSeverities = severitiesByRow.get(rowNumber);
+          if (!rowSeverities || !rowSeverities.has(severityFilter)) return false;
         }
 
-        if (searchTerm.trim() !== '') {
-          const term = searchTerm.toLowerCase();
+        if (hasSearch) {
           const matches = Object.values(row).some(val => 
             String(val).toLowerCase().includes(term)
           );
@@ -97,7 +152,28 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
 
         return true;
       });
-  }, [dataset.rawData, rowsWithIssues, issues, filterMode, severityFilter, searchTerm]);
+  }, [dataset.rawData, rowsWithIssues, severitiesByRow, filterMode, severityFilter, searchTerm]);
+
+  // Slice paginated records for butter-smooth rendering
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const clampedCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+  const paginatedRows = useMemo(() => {
+    const start = (clampedCurrentPage - 1) * pageSize;
+    return filteredRows.slice(start, start + pageSize);
+  }, [filteredRows, clampedCurrentPage, pageSize]);
+
+  const startRecordIndex = filteredRows.length === 0 ? 0 : (clampedCurrentPage - 1) * pageSize + 1;
+  const endRecordIndex = Math.min(clampedCurrentPage * pageSize, filteredRows.length);
+
+  // Paginated exceptions for card grid
+  const totalExceptionPages = Math.max(1, Math.ceil(issues.length / exceptionsPerPage));
+  const clampedExceptionPage = Math.min(Math.max(1, exceptionsPage), totalExceptionPages);
+
+  const paginatedExceptions = useMemo(() => {
+    const start = (clampedExceptionPage - 1) * exceptionsPerPage;
+    return issues.slice(start, start + exceptionsPerPage);
+  }, [issues, clampedExceptionPage, exceptionsPerPage]);
 
   // Handle Edit Row
   const startEditingRow = (index: number, row: Record<string, string>) => {
@@ -120,22 +196,65 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
     setEditedRowData({});
   };
 
-  // Append a new column to the schema and initialize values
-  const handleAddNewColumnSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const colTrimmed = newColName.trim();
-    if (!colTrimmed || dataset.columns.includes(colTrimmed)) return;
+  // Detect duplicate or colliding column names in current dataset
+  const duplicateColumnPairs = useMemo(() => {
+    const seen = new Map<string, string[]>();
+    for (const c of dataset.columns) {
+      const normalized = c.toLowerCase().replace(/(_\d+|_copy|_alt|_backup)$/, '');
+      if (!seen.has(normalized)) seen.set(normalized, []);
+      seen.get(normalized)!.push(c);
+    }
+    const pairs: Array<{ key: string; cols: string[] }> = [];
+    for (const [key, cols] of seen.entries()) {
+      if (cols.length > 1) pairs.push({ key, cols });
+    }
+    return pairs;
+  }, [dataset.columns]);
 
-    const updatedCols = [...dataset.columns, colTrimmed];
-    const updatedRecords = dataset.rawData.map(row => ({
-      ...row,
-      [colTrimmed]: newColDefaultVal
-    }));
+  // Handle column addition with custom data type, check constraints, and duplicate resolution
+  const handleAddNewColumn = (result: AddColumnResult) => {
+    const {
+      columnName,
+      defaultValue,
+      rules,
+      duplicateResolution,
+      resolvedColumnName
+    } = result;
+
+    const finalCol = resolvedColumnName || columnName;
+    let updatedCols = [...dataset.columns];
+    let updatedRecords: Record<string, string>[] = [];
+
+    if (duplicateResolution === 'OVERWRITE') {
+      updatedRecords = dataset.rawData.map(row => ({
+        ...row,
+        [finalCol]: defaultValue
+      }));
+    } else if (duplicateResolution === 'MERGE') {
+      updatedRecords = dataset.rawData.map(row => {
+        const copy = { ...row };
+        if (!copy[finalCol] || copy[finalCol].trim() === '') {
+          copy[finalCol] = defaultValue;
+        }
+        return copy;
+      });
+    } else {
+      // Standard addition or Disambiguated rename (e.g. email_2)
+      if (!updatedCols.includes(finalCol)) {
+        updatedCols = [...updatedCols, finalCol];
+      }
+      updatedRecords = dataset.rawData.map(row => ({
+        ...row,
+        [finalCol]: defaultValue
+      }));
+    }
 
     onUpdateDatasetRecords(updatedRecords, updatedCols);
-    setIsAddColModalOpen(false);
-    setNewColName('');
-    setNewColDefaultVal('');
+
+    // Register identified or configured check constraints/rules
+    if (rules && rules.length > 0 && onAddMultipleRules) {
+      onAddMultipleRules(rules);
+    }
   };
 
   // Remove column from schema and records
@@ -149,6 +268,146 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
     });
 
     onUpdateDatasetRecords(updatedRecords, updatedCols);
+  };
+
+  // Helper to render typed cell editor based on column semantics
+  const renderCellEditor = (col: string, cellVal: string) => {
+    const colLower = col.toLowerCase();
+    const isDate = colLower.includes('date') || colLower.includes('time') || /^\d{4}-\d{2}-\d{2}$/.test(cellVal.trim());
+    const isStatus = colLower.includes('status');
+    const isDept = colLower.includes('dept');
+    const isNumber = colLower.includes('salary') || colLower.includes('qty') || colLower.includes('quantity') || colLower.includes('amount') || colLower.includes('price');
+    const isEmail = colLower.includes('email') || colLower.includes('mail');
+
+    // 1. Date Editor: Ensure flexible text entry, calendar picker, and auto-conversion so full dates are never truncated or rejected
+    if (isDate) {
+      const isValidIsoDate = /^\d{4}-\d{2}-\d{2}$/.test(cellVal.trim());
+      return (
+        <div className="min-w-[175px] space-y-1">
+          <div className="flex items-center space-x-1">
+            <input
+              type="text"
+              placeholder="YYYY-MM-DD"
+              value={cellVal}
+              onChange={(e) => {
+                setEditedRowData({ ...editedRowData, [col]: e.target.value });
+              }}
+              className="flex-1 bg-slate-950 border border-indigo-500 rounded px-2 py-1 text-xs text-white focus:outline-none font-mono"
+            />
+            <input
+              type="date"
+              value={isValidIsoDate ? cellVal.trim() : ''}
+              onChange={(e) => {
+                if (e.target.value) {
+                  setEditedRowData({ ...editedRowData, [col]: e.target.value });
+                }
+              }}
+              className="w-7 h-7 bg-slate-900 border border-indigo-500/60 rounded p-0 text-xs text-white cursor-pointer"
+              title="Pick date from calendar"
+            />
+          </div>
+          {!isValidIsoDate && cellVal && (
+            <div className="flex items-center justify-between text-[10px] text-amber-400 font-mono">
+              <span className="truncate max-w-[90px]" title={cellVal}>{cellVal}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  const parsed = Date.parse(cellVal);
+                  const iso = !isNaN(parsed) ? new Date(parsed).toISOString().split('T')[0] : '2026-10-15';
+                  setEditedRowData({ ...editedRowData, [col]: iso });
+                }}
+                className="px-1.5 py-0.2 rounded bg-indigo-600/40 text-indigo-300 hover:bg-indigo-600 transition"
+              >
+                Auto ISO
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // 2. Status / Allowed Values Dropdown
+    if (isStatus) {
+      const standardStatuses = ['Approved', 'Pending', 'Shipped', 'Quality_Check', 'Active', 'Inactive'];
+      const hasCurrent = standardStatuses.includes(cellVal);
+      return (
+        <select
+          value={cellVal}
+          onChange={(e) => setEditedRowData({ ...editedRowData, [col]: e.target.value })}
+          className="w-full min-w-[125px] bg-slate-950 border border-indigo-500 rounded px-2 py-1 text-xs text-white focus:outline-none font-mono cursor-pointer"
+        >
+          {!hasCurrent && cellVal && (
+            <option value={cellVal} className="bg-rose-950 text-rose-300">
+              ⚠️ Current: {cellVal}
+            </option>
+          )}
+          {standardStatuses.map((s) => (
+            <option key={s} value={s} className="bg-slate-900 text-white">
+              {s}
+            </option>
+          ))}
+        </select>
+      );
+    }
+
+    // 3. Department Code Dropdown
+    if (isDept) {
+      return (
+        <select
+          value={cellVal}
+          onChange={(e) => setEditedRowData({ ...editedRowData, [col]: e.target.value })}
+          className="w-full min-w-[145px] bg-slate-950 border border-indigo-500 rounded px-2 py-1 text-xs text-white focus:outline-none font-mono cursor-pointer"
+        >
+          {MASTER_DEPARTMENT_CATALOG.map((dept) => (
+            <option key={dept.code} value={dept.code} className="bg-slate-900 text-white">
+              {dept.code} ({dept.name})
+            </option>
+          ))}
+          {!MASTER_DEPARTMENT_CATALOG.some(d => d.code === cellVal) && cellVal && (
+            <option value={cellVal} className="bg-rose-950 text-rose-300">
+              ⚠️ Unknown Code: {cellVal}
+            </option>
+          )}
+        </select>
+      );
+    }
+
+    // 4. Numeric input
+    if (isNumber) {
+      return (
+        <input
+          type="number"
+          min={colLower.includes('salary') || colLower.includes('qty') ? '1' : '0'}
+          value={cellVal}
+          onChange={(e) => setEditedRowData({ ...editedRowData, [col]: e.target.value })}
+          placeholder="Number >= 0"
+          className="w-full min-w-[110px] bg-slate-950 border border-indigo-500 rounded px-2 py-1 text-xs text-white focus:outline-none font-mono"
+        />
+      );
+    }
+
+    // 5. Email input
+    if (isEmail) {
+      return (
+        <input
+          type="email"
+          value={cellVal}
+          onChange={(e) => setEditedRowData({ ...editedRowData, [col]: e.target.value })}
+          placeholder="user@example.com"
+          className="w-full min-w-[165px] bg-slate-950 border border-indigo-500 rounded px-2 py-1 text-xs text-white focus:outline-none font-mono"
+        />
+      );
+    }
+
+    // 6. Default text input
+    return (
+      <input
+        type="text"
+        value={cellVal}
+        onChange={(e) => setEditedRowData({ ...editedRowData, [col]: e.target.value })}
+        className="w-full min-w-[110px] bg-slate-950 border border-indigo-500 rounded px-2 py-1 text-xs text-white focus:outline-none font-mono"
+      />
+    );
   };
 
   // Apply corrections to common sample anomalies
@@ -263,12 +522,24 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
           {/* Dynamic Column Addition Button */}
           <button
             onClick={() => setIsAddColModalOpen(true)}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition cursor-pointer"
-            title="Dynamically introduce a new column to test real-time validation error propagation"
+            className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-200 border border-indigo-500/30 transition cursor-pointer shadow-sm"
+            title="Introduce new column with custom data type, check constraints, and multi-valued configuration"
           >
             <Plus className="w-3.5 h-3.5 text-indigo-400" />
             <span>Add Column</span>
           </button>
+
+          {/* Duplicate Column Resolver Button (appears whenever duplicate/colliding columns exist) */}
+          {duplicateColumnPairs.length > 0 && (
+            <button
+              onClick={() => setIsDuplicateModalOpen(true)}
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 transition shadow-sm cursor-pointer animate-pulse"
+              title="Compare and resolve colliding duplicate columns"
+            >
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+              <span>Resolve Duplicates ({duplicateColumnPairs.length})</span>
+            </button>
+          )}
 
           {rowsWithIssues.size > 0 && (
             <button
@@ -349,89 +620,128 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
           </div>
 
           {showExceptionsPanel && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {issues.map((issue) => {
-                const fieldDef = getFieldDefinition(issue.columnName);
-                const rowIdx = issue.rowNumber - 1;
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {paginatedExceptions.map((issue) => {
+                  const fieldDef = getFieldDefinition(issue.columnName);
+                  const rowIdx = issue.rowNumber - 1;
 
-                return (
-                  <div
-                    key={issue.issueId}
-                    className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 hover:border-slate-700 transition flex flex-col justify-between space-y-3"
-                  >
-                    <div>
-                      {/* Header with Row and Severity */}
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono text-xs font-bold text-slate-300">
-                          Row #{issue.rowNumber} • <span className="text-indigo-400">{issue.columnName}</span>
-                        </span>
-                        <span className={`px-2 py-0.2 rounded text-[10px] font-mono font-bold uppercase ${
-                          issue.severity === 'CRITICAL'
-                            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                            : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                        }`}>
-                          {issue.severity}
-                        </span>
-                      </div>
+                  return (
+                    <div
+                      key={issue.issueId}
+                      className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 hover:border-slate-700 transition flex flex-col justify-between space-y-3"
+                    >
+                      <div>
+                        {/* Header with Row, Severity, and Resolution Status */}
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono text-xs font-bold text-slate-300">
+                            Row #{issue.rowNumber} • <span className="text-indigo-400">{issue.columnName}</span>
+                          </span>
+                          <div className="flex items-center space-x-1.5">
+                            {issue.resolutionStatus && issue.resolutionStatus !== 'OPEN' && (
+                              <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                {issue.resolutionStatus}
+                              </span>
+                            )}
+                            <span className={`px-2 py-0.2 rounded text-[10px] font-mono font-bold uppercase ${
+                              issue.severity === 'CRITICAL'
+                                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                            }`}>
+                              {issue.severity}
+                            </span>
+                          </div>
+                        </div>
 
-                      {/* Cell Value Found */}
-                      <div className="mt-2 text-xs font-mono flex items-center space-x-1.5 text-slate-400">
-                        <span>Observed Value:</span>
-                        <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30">
-                          {issue.foundValue}
-                        </span>
-                      </div>
+                        {/* Cell Value Found */}
+                        <div className="mt-2 text-xs font-mono flex items-center space-x-1.5 text-slate-400">
+                          <span>Observed Value:</span>
+                          <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30">
+                            {issue.foundValue}
+                          </span>
+                        </div>
 
-                      {/* What's Wrong */}
-                      <div className="mt-2 p-2 rounded-lg bg-rose-950/30 border border-rose-500/30 text-xs">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-rose-400 block">
-                          What is wrong:
-                        </span>
-                        <p className="text-white font-medium mt-0.5 text-xs">
-                          {issue.simpleProblem || issue.errorMessage}
+                        {/* What's Wrong */}
+                        <div className="mt-2 p-2 rounded-lg bg-rose-950/30 border border-rose-500/30 text-xs">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-rose-400 block">
+                            What is wrong:
+                          </span>
+                          <p className="text-white font-medium mt-0.5 text-xs">
+                            {issue.simpleProblem || issue.errorMessage}
+                          </p>
+                        </div>
+
+                        {/* How to Fix */}
+                        <div className="mt-2 p-2 rounded-lg bg-emerald-950/30 border border-emerald-500/30 text-xs">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">
+                            How to fix:
+                          </span>
+                          <p className="text-emerald-200 mt-0.5 text-xs">
+                            {issue.simpleFix || 'Provide a valid entry'}
+                          </p>
+                        </div>
+
+                        {/* Field Plain Meaning */}
+                        <p className="text-[11px] text-slate-400 mt-2">
+                          <span className="text-slate-500 font-semibold">{fieldDef.displayName}:</span> {fieldDef.plainMeaning}
                         </p>
                       </div>
 
-                      {/* How to Fix */}
-                      <div className="mt-2 p-2 rounded-lg bg-emerald-950/30 border border-emerald-500/30 text-xs">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">
-                          How to fix:
-                        </span>
-                        <p className="text-emerald-200 mt-0.5 text-xs">
-                          {issue.simpleFix || 'Provide a valid entry'}
-                        </p>
+                      {/* Actions */}
+                      <div className="pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                        <button
+                          onClick={() => {
+                            if (dataset.rawData[rowIdx]) {
+                              startEditingRow(rowIdx, dataset.rawData[rowIdx]);
+                            }
+                          }}
+                          className="inline-flex items-center space-x-1 text-xs text-indigo-400 hover:text-indigo-300 font-medium cursor-pointer"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>Edit Row #{issue.rowNumber}</span>
+                        </button>
+
+                        <button
+                          onClick={() => onSelectIssue(issue)}
+                          className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 transition cursor-pointer text-xs font-semibold"
+                          title="Open remediation drawer to inspect record details and record audit log"
+                        >
+                          <History className="w-3.5 h-3.5" />
+                          <span>Audit Details &rarr;</span>
+                        </button>
                       </div>
-
-                      {/* Field Plain Meaning */}
-                      <p className="text-[11px] text-slate-400 mt-2">
-                        <span className="text-slate-500 font-semibold">{fieldDef.displayName}:</span> {fieldDef.plainMeaning}
-                      </p>
                     </div>
+                  );
+                })}
+              </div>
 
-                    {/* Actions */}
-                    <div className="pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-xs">
-                      <button
-                        onClick={() => {
-                          if (dataset.rawData[rowIdx]) {
-                            startEditingRow(rowIdx, dataset.rawData[rowIdx]);
-                          }
-                        }}
-                        className="inline-flex items-center space-x-1 text-xs text-indigo-400 hover:text-indigo-300 font-medium cursor-pointer"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                        <span>Edit Row #{issue.rowNumber}</span>
-                      </button>
-
-                      <button
-                        onClick={() => onSelectIssue(issue)}
-                        className="text-xs text-slate-400 hover:text-white transition cursor-pointer"
-                      >
-                        Audit Details &rarr;
-                      </button>
-                    </div>
+              {/* Exception Cards Pagination Controls */}
+              {totalExceptionPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between pt-3 border-t border-slate-800 text-xs gap-2">
+                  <span className="text-slate-400 font-mono text-[11px]">
+                    Showing issues {((clampedExceptionPage - 1) * exceptionsPerPage) + 1}–{Math.min(clampedExceptionPage * exceptionsPerPage, issues.length)} of {issues.length} flagged exceptions
+                  </span>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setExceptionsPage(p => Math.max(1, p - 1))}
+                      disabled={clampedExceptionPage === 1}
+                      className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 text-xs cursor-pointer disabled:cursor-not-allowed transition"
+                    >
+                      &larr; Prev 12
+                    </button>
+                    <span className="text-slate-400 font-mono text-xs px-2">
+                      Page {clampedExceptionPage} of {totalExceptionPages}
+                    </span>
+                    <button
+                      onClick={() => setExceptionsPage(p => Math.min(totalExceptionPages, p + 1))}
+                      disabled={clampedExceptionPage === totalExceptionPages}
+                      className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 text-xs cursor-pointer disabled:cursor-not-allowed transition"
+                    >
+                      Next 12 &rarr;
+                    </button>
                   </div>
-                );
-              })}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -439,22 +749,83 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
 
       {/* Main Records Table */}
       <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-        <div className="p-3 bg-slate-950/40 border-b border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-400 gap-2">
-          <div className="flex items-center space-x-2">
-            <span className="font-semibold text-slate-200">Dataset Grid:</span>
-            <span>Showing {filteredRows.length} of {dataset.rowCount} rows</span>
+        {/* Table Header Bar & Top Pagination */}
+        <div className="p-3 bg-slate-950/40 border-b border-slate-800/80 flex flex-col md:flex-row md:items-center justify-between text-xs text-slate-400 gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold text-slate-200">Dataset Records:</span>
+            <span className="font-mono text-indigo-300">
+              Showing {startRecordIndex}–{endRecordIndex} of {filteredRows.length.toLocaleString()} rows
+            </span>
+            {filteredRows.length !== dataset.rowCount && (
+              <span className="text-slate-500 font-mono text-[11px]">
+                (Filtered from {dataset.rowCount.toLocaleString()} total)
+              </span>
+            )}
             <span className="text-slate-600">•</span>
-            <span className="font-mono text-indigo-300">{dataset.columns.length} columns registered</span>
+            <span className="font-mono text-slate-400">{dataset.columns.length} columns registered</span>
           </div>
 
-          <div className="flex items-center space-x-3 text-[11px]">
-            <span className="text-slate-400">
-              Columns are strictly scoped to isolated semantic domains. Click <Sliders className="w-3 h-3 inline text-indigo-400" /> on any cell to inspect cross-column validity.
-            </span>
+          {/* Top Pagination & Page Size Control */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center space-x-1.5">
+              <span className="text-[11px] text-slate-500">Rows per page:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-200 font-mono focus:outline-none focus:border-indigo-500 cursor-pointer"
+              >
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={250}>250</option>
+                <option value={500}>500</option>
+              </select>
+            </div>
+
+            <div className="flex items-center space-x-1">
+              <button
+                onClick={() => setCurrentPage(1)}
+                disabled={clampedCurrentPage <= 1}
+                className="p-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-slate-300 cursor-pointer disabled:cursor-not-allowed transition"
+                title="First Page"
+              >
+                <ChevronsLeft className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={clampedCurrentPage <= 1}
+                className="p-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-slate-300 cursor-pointer disabled:cursor-not-allowed transition"
+                title="Previous Page"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <span className="px-2 font-mono text-xs text-slate-300">
+                {clampedCurrentPage} / {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={clampedCurrentPage >= totalPages}
+                className="p-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-slate-300 cursor-pointer disabled:cursor-not-allowed transition"
+                title="Next Page"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={clampedCurrentPage >= totalPages}
+                className="p-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-slate-300 cursor-pointer disabled:cursor-not-allowed transition"
+                title="Last Page"
+              >
+                <ChevronsRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="overflow-x-auto max-h-[600px] relative">
+        <div className="overflow-x-auto max-h-[620px] relative">
           <table className="w-full text-left text-xs border-collapse">
             <thead className="bg-[#0b0f17] text-slate-300 font-mono text-[11px] sticky top-0 z-20 shadow-sm border-b border-slate-800">
               <tr>
@@ -465,7 +836,7 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
                   Status
                 </th>
                 {dataset.columns.map((col) => {
-                  const colIssues = issues.filter(i => i.columnName === col);
+                  const colIssuesCount = issuesCountByCol.get(col) || 0;
                   const domain = inferColumnSemanticDomain(col);
 
                   return (
@@ -478,9 +849,9 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
                           </span>
                         </div>
                         <div className="flex items-center space-x-1 shrink-0">
-                          {colIssues.length > 0 && (
+                          {colIssuesCount > 0 && (
                             <span className="px-1.5 py-0.2 rounded text-[9px] bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                              {colIssues.length}
+                              {colIssuesCount}
                             </span>
                           )}
                           <button
@@ -508,9 +879,9 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
                   </td>
                 </tr>
               ) : (
-                filteredRows.map(({ row, rowNumber, originalIndex }) => {
+                paginatedRows.map(({ row, rowNumber, originalIndex }) => {
                   const isEditing = editingRowIndex === originalIndex;
-                  const rowIssues = issues.filter(i => i.rowNumber === rowNumber);
+                  const rowIssues = issuesByRowNumber.get(rowNumber) || [];
                   const hasIssues = rowIssues.length > 0;
 
                   return (
@@ -562,14 +933,7 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
                             onMouseLeave={() => setHoveredCell(null)}
                           >
                             {isEditing ? (
-                              <input
-                                type="text"
-                                value={cellVal}
-                                onChange={(e) =>
-                                  setEditedRowData({ ...editedRowData, [col]: e.target.value })
-                                }
-                                className="w-full bg-slate-950 border border-indigo-500/70 rounded px-1.5 py-0.5 text-xs text-white focus:outline-none"
-                              />
+                              renderCellEditor(col, cellVal)
                             ) : (
                               <div className="flex items-center justify-between">
                                 <span className="truncate">
@@ -662,6 +1026,75 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
             </tbody>
           </table>
         </div>
+
+        {/* Bottom Comprehensive Pagination Toolbar */}
+        <div className="p-3 bg-slate-950/60 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-3">
+          <div className="flex items-center space-x-2 font-mono text-[11px]">
+            <span>
+              Showing {startRecordIndex} to {endRecordIndex} of {filteredRows.length.toLocaleString()} rows
+            </span>
+            <span className="text-slate-600">•</span>
+            <span>Page {clampedCurrentPage} of {totalPages}</span>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            {/* Quick jump to page */}
+            <div className="flex items-center space-x-1 mr-2 text-[11px]">
+              <span className="text-slate-500">Go to page:</span>
+              <input
+                type="number"
+                min={1}
+                max={totalPages}
+                value={clampedCurrentPage}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value);
+                  if (!isNaN(val) && val >= 1 && val <= totalPages) {
+                    setCurrentPage(val);
+                  }
+                }}
+                className="w-14 bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-center text-slate-200 font-mono text-xs focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={clampedCurrentPage <= 1}
+              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-slate-300 cursor-pointer disabled:cursor-not-allowed transition"
+              title="First Page"
+            >
+              <ChevronsLeft className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={clampedCurrentPage <= 1}
+              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-slate-300 cursor-pointer disabled:cursor-not-allowed transition"
+              title="Previous Page"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            <span className="px-3 py-1 bg-slate-900 border border-slate-800 rounded-lg font-mono text-xs text-indigo-300 font-bold">
+              {clampedCurrentPage}
+            </span>
+
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={clampedCurrentPage >= totalPages}
+              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-slate-300 cursor-pointer disabled:cursor-not-allowed transition"
+              title="Next Page"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={clampedCurrentPage >= totalPages}
+              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-slate-300 cursor-pointer disabled:cursor-not-allowed transition"
+              title="Last Page"
+            >
+              <ChevronsRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Auto-Fix Verification & Legitimacy Inspector Modal */}
@@ -676,61 +1109,26 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
         }}
       />
 
-      {/* Dynamic Add Column Modal */}
-      {isAddColModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#0f172a] border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
-            <h3 className="text-base font-bold text-white mb-1 flex items-center space-x-2">
-              <Plus className="w-4 h-4 text-indigo-400" />
-              <span>Introduce Dynamic Column to Schema</span>
-            </h3>
-            <p className="text-xs text-slate-400 mb-4">
-              Simulates dynamic schema evolution. New column will be added across all records and dynamically analyzed for quality errors.
-            </p>
+      {/* Modern Dynamic Add Column Modal */}
+      <AddColumnModal
+        isOpen={isAddColModalOpen}
+        onClose={() => setIsAddColModalOpen(false)}
+        existingColumns={dataset.columns}
+        onAddColumn={handleAddNewColumn}
+      />
 
-            <form onSubmit={handleAddNewColumnSubmit} className="space-y-4 text-xs">
-              <div>
-                <label className="block text-slate-300 font-medium mb-1">Column Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. hire_date, cost_center, country_code..."
-                  value={newColName}
-                  onChange={(e) => setNewColName(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-300 font-medium mb-1">Default Initial Value (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="Leave empty to test empty cell detection..."
-                  value={newColDefaultVal}
-                  onChange={(e) => setNewColDefaultVal(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono"
-                />
-              </div>
-
-              <div className="flex items-center justify-end space-x-2 pt-4 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setIsAddColModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-md shadow-indigo-600/30 transition cursor-pointer"
-                >
-                  Add &amp; Dynamically Validate
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Duplicate / Colliding Column Resolver Modal */}
+      <DuplicateColumnResolverModal
+        isOpen={isDuplicateModalOpen}
+        onClose={() => setIsDuplicateModalOpen(false)}
+        dataset={dataset}
+        initialColA={duplicateColumnPairs[0]?.cols[0]}
+        initialColB={duplicateColumnPairs[0]?.cols[1]}
+        onResolve={(updatedRecords, updatedCols) => {
+          setHasAppliedFixes(true);
+          onUpdateDatasetRecords(updatedRecords, updatedCols);
+        }}
+      />
     </div>
   );
 };

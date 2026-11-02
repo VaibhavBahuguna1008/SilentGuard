@@ -283,6 +283,17 @@ export const AutoFixVerificationModal: React.FC<AutoFixVerificationModalProps> =
   const [showLogicDetails, setShowLogicDetails] = useState<boolean>(true);
   const [selectedFixId, setSelectedFixId] = useState<string | null>(null);
 
+  // Pagination for large candidate fix sets
+  const [fixPage, setFixPage] = useState<number>(1);
+  const fixesPerPage = 50;
+  const totalFixPages = Math.max(1, Math.ceil(initialProposedFixes.length / fixesPerPage));
+  const clampedFixPage = Math.min(Math.max(1, fixPage), totalFixPages);
+
+  const paginatedFixes = useMemo(() => {
+    const start = (clampedFixPage - 1) * fixesPerPage;
+    return initialProposedFixes.slice(start, start + fixesPerPage);
+  }, [initialProposedFixes, clampedFixPage, fixesPerPage]);
+
   // Initialize selected values with defaults
   const getEffectiveValue = (fix: ProposedFix) => {
     return editedValues[fix.id] !== undefined ? editedValues[fix.id] : fix.proposedValue;
@@ -408,7 +419,7 @@ export const AutoFixVerificationModal: React.FC<AutoFixVerificationModalProps> =
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 font-mono">
-              {initialProposedFixes.map((fix) => {
+              {paginatedFixes.map((fix) => {
                 const effectiveVal = getEffectiveValue(fix);
                 const isSelected = selectedFixId === fix.id;
 
@@ -496,6 +507,36 @@ export const AutoFixVerificationModal: React.FC<AutoFixVerificationModalProps> =
             </tbody>
           </table>
         </div>
+
+        {/* Fixes Pagination Bar */}
+        {totalFixPages > 1 && (
+          <div className="mt-2 px-3 py-2 bg-slate-900/60 border border-slate-800 rounded-xl flex items-center justify-between text-xs text-slate-400 shrink-0">
+            <span className="font-mono text-[11px]">
+              Showing fixes {((clampedFixPage - 1) * fixesPerPage) + 1}–{Math.min(clampedFixPage * fixesPerPage, initialProposedFixes.length)} of {initialProposedFixes.length} candidate repairs
+            </span>
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                onClick={() => setFixPage(p => Math.max(1, p - 1))}
+                disabled={clampedFixPage === 1}
+                className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-slate-200 text-xs cursor-pointer disabled:cursor-not-allowed transition"
+              >
+                &larr; Previous 50
+              </button>
+              <span className="font-mono text-xs text-indigo-300 font-bold px-1">
+                {clampedFixPage} / {totalFixPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setFixPage(p => Math.min(totalFixPages, p + 1))}
+                disabled={clampedFixPage === totalFixPages}
+                className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-slate-200 text-xs cursor-pointer disabled:cursor-not-allowed transition"
+              >
+                Next 50 &rarr;
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Selected Fix Deep Dive Inspection Footer */}
         {activeSelectedFix && (

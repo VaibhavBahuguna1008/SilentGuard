@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { 
   AlertTriangle, 
   CheckCircle2, 
@@ -74,13 +74,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     runNumber
   } = latestRun;
 
-  // Error category breakdown
-  const categoryCounts: Record<string, number> = {};
-  issues.forEach(i => {
-    categoryCounts[i.category] = (categoryCounts[i.category] || 0) + 1;
-  });
-
-  const categories = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1]);
+  // Error category breakdown (memoized for instant tab responsiveness)
+  const categories = useMemo(() => {
+    const categoryCounts: Record<string, number> = {};
+    for (const i of issues) {
+      categoryCounts[i.category] = (categoryCounts[i.category] || 0) + 1;
+    }
+    return Object.entries(categoryCounts).sort((a, b) => b[1] - a[1]);
+  }, [issues]);
 
   // Health status badge
   let healthColor = 'text-emerald-400';

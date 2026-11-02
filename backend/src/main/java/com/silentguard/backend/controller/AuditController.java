@@ -31,4 +31,26 @@ public class AuditController {
         }
         return ResponseEntity.ok(historyRepository.save(history));
     }
+
+    @PutMapping("/resolutions/{id}")
+    public ResponseEntity<ResolutionHistoryEntity> updateResolution(
+            @PathVariable String id,
+            @RequestBody ResolutionHistoryEntity updated
+    ) {
+        return historyRepository.findById(id).map(existing -> {
+            existing.setResolutionStatus(updated.getResolutionStatus());
+            existing.setResolutionComment(updated.getResolutionComment());
+            existing.setUpdatedAt(java.time.LocalDateTime.now());
+            return ResponseEntity.ok(historyRepository.save(existing));
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    @DeleteMapping("/resolutions/{id}")
+    public ResponseEntity<Void> deleteResolution(@PathVariable String id) {
+        if (historyRepository.existsById(id)) {
+            historyRepository.deleteById(id);
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.notFound().build();
+    }
 }

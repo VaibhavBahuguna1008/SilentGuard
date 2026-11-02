@@ -125,9 +125,23 @@ public class CsvImportService {
         String rawDataJson = objectMapper.writeValueAsString(rowList);
         String columnsJson = objectMapper.writeValueAsString(columns);
 
-        // Save metadata into datasets table
-        DatasetEntity entity = new DatasetEntity();
-        entity.setDatasetId("ds-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().substring(0, 5));
+        // Check if a dataset with this exact filename already exists to prevent duplicate entries
+        List<DatasetEntity> existingWithSameName = datasetRepository.findByFileNameOrderByCreatedAtDesc(filename);
+        DatasetEntity entity;
+        if (!existingWithSameName.isEmpty()) {
+            entity = existingWithSameName.get(0);
+            // Delete any older duplicate entries for this file
+            for (int i = 1; i < existingWithSameName.size(); i++) {
+                try {
+                    datasetRepository.delete(existingWithSameName.get(i));
+                } catch (Exception ignored) {}
+            }
+        } else {
+            entity = new DatasetEntity();
+            entity.setDatasetId("ds-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().substring(0, 5));
+            entity.setCreatedAt(LocalDateTime.now());
+        }
+
         entity.setFileName(filename);
         entity.setTableName(tableName);
         entity.setPipelineType(pipelineType != null && !pipelineType.isEmpty() ? pipelineType : "BATCH");
@@ -138,7 +152,6 @@ public class CsvImportService {
         entity.setColumnsJson(columnsJson);
         entity.setRawDataJson(rawDataJson);
         entity.setOriginalCsv(csvContent);
-        entity.setCreatedAt(LocalDateTime.now());
 
         return datasetRepository.save(entity);
     }

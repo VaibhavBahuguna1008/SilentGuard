@@ -220,6 +220,7 @@ public class ValidationEngineService {
                         }
                         break;
 
+                    case "CHECK_CONSTRAINT":
                     case "FORMAT":
                         expected = "Must match format: " + rule.getParameter();
                         if (!trimmedVal.isEmpty() && rule.getParameter() != null && !rule.getParameter().isEmpty()) {
@@ -329,8 +330,19 @@ public class ValidationEngineService {
 
         int healthScore = 100;
         if (totalRecords > 0) {
-            double penalty = (criticalCount * 25.0 + errorCount * 12.0 + warningCount * 4.0) / totalRecords;
-            healthScore = Math.max(0, Math.min(100, (int) Math.round(100 - penalty * 10)));
+            int totalIssues = issues.size();
+            if (totalIssues == 0) {
+                healthScore = 100;
+            } else if (passedRecords == 0) {
+                healthScore = 0;
+            } else {
+                double passRatio = (double) passedRecords / totalRecords;
+                double weightedDefects = (criticalCount * 2.5) + (errorCount * 1.0) + (warningCount * 0.2);
+                double defectDensity = weightedDefects / totalRecords;
+                double densityDeduction = Math.min(30.0, defectDensity * 20.0);
+                int calculated = (int) Math.round(passRatio * (100.0 - densityDeduction));
+                healthScore = Math.max(1, Math.min(99, calculated));
+            }
         }
 
         String runStatus = "PASSED";

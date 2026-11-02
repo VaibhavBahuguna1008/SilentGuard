@@ -358,5 +358,22 @@ export const api = {
     });
     if (!res.ok) throw new Error('Failed to record resolution');
     return await res.json();
+  },
+
+  async updateResolution(history: ResolutionHistory): Promise<ResolutionHistory> {
+    const res = await fetch(`${API_BASE_URL}/audit/resolutions/${history.resolutionId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(history)
+    });
+    if (!res.ok) throw new Error('Failed to update resolution');
+    return await res.json();
+  },
+
+  async deleteResolution(resolutionId: string): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/audit/resolutions/${resolutionId}`, {
+      method: 'DELETE'
+    });
+    if (!res.ok) throw new Error('Failed to delete resolution');
   }
 };

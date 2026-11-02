@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   FileDown, 
   FileSpreadsheet, 
@@ -9,9 +9,18 @@ import {
   Award,
   Layers,
   Clock,
-  Sparkles
+  Sparkles,
+  Edit3,
+  Trash2,
+  Filter,
+  Search,
+  User,
+  History,
+  X,
+  Check,
+  AlertTriangle
 } from 'lucide-react';
-import { Dataset, ValidationRun, ValidationIssue, ValidationRule, ResolutionHistory } from '../types';
+import { Dataset, ValidationRun, ValidationIssue, ValidationRule, ResolutionHistory, ResolutionStatus } from '../types';
 import { downloadTextFile, exportDatasetToCsv, exportIssuesToCsv } from '../utils/csvParser';
 
 interface ExportAuditViewProps {
@@ -20,6 +29,8 @@ interface ExportAuditViewProps {
   issues: ValidationIssue[];
   rules: ValidationRule[];
   resolutionHistories: ResolutionHistory[];
+  onEditAuditLog?: (resolutionId: string, status: ResolutionStatus, comment: string) => void;
+  onDeleteAuditLog?: (resolutionId: string) => void;
 }
 
 export const ExportAuditView: React.FC<ExportAuditViewProps> = ({
@@ -27,8 +38,59 @@ export const ExportAuditView: React.FC<ExportAuditViewProps> = ({
   latestRun,
   issues,
   rules,
-  resolutionHistories
+  resolutionHistories,
+  onEditAuditLog,
+  onDeleteAuditLog
 }) => {
+  // Search & Filter for Resolution Logs
+  const [logFilterStatus, setLogFilterStatus] = useState<string>('ALL');
+  const [logSearchTerm, setLogSearchTerm] = useState('');
+
+  // Editing state for an individual audit log
+  const [editingLog, setEditingLog] = useState<ResolutionHistory | null>(null);
+  const [editStatus, setEditStatus] = useState<ResolutionStatus>('IN_REVIEW');
+  const [editComment, setEditComment] = useState('');
+
+  // Filtered resolution histories
+  const filteredLogs = useMemo(() => {
+    return resolutionHistories.filter(log => {
+      if (logFilterStatus !== 'ALL' && log.resolutionStatus !== logFilterStatus) {
+        return false;
+      }
+      if (logSearchTerm.trim()) {
+        const term = logSearchTerm.toLowerCase();
+        const matchesComment = (log.resolutionComment || '').toLowerCase().includes(term);
+        const matchesIssueId = (log.issueId || '').toLowerCase().includes(term);
+        const matchesUser = (log.resolvedBy || '').toLowerCase().includes(term);
+        if (!matchesComment && !matchesIssueId && !matchesUser) return false;
+      }
+      return true;
+    });
+  }, [resolutionHistories, logFilterStatus, logSearchTerm]);
+
+  const handleOpenEdit = (log: ResolutionHistory) => {
+    setEditingLog(log);
+    setEditStatus(log.resolutionStatus);
+    setEditComment(log.resolutionComment);
+  };
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingLog || !editComment.trim()) return;
+    if (onEditAuditLog) {
+      onEditAuditLog(editingLog.resolutionId, editStatus, editComment.trim());
+    }
+    setEditingLog(null);
+  };
+
+  const handleDelete = (resolutionId: string) => {
+    if (window.confirm('Are you sure you want to delete this resolution audit log?')) {
+      if (onDeleteAuditLog) {
+        onDeleteAuditLog(resolutionId);
+      }
+    }
+  };
+
   const handleExportFullAuditJson = () => {
     const auditPackage = {
       auditTimestamp: new Date().toISOString(),
@@ -66,7 +128,6 @@ export const ExportAuditView: React.FC<ExportAuditViewProps> = ({
   };
 
   const resolvedCount = issues.filter(i => i.resolutionStatus === 'FIXED_IN_SOURCE' || i.resolutionStatus === 'WAIVED').length;
-  const openCount = issues.filter(i => i.resolutionStatus === 'OPEN' || i.resolutionStatus === 'IN_REVIEW').length;
 
   return (
     <div className="space-y-6">
@@ -81,7 +142,7 @@ export const ExportAuditView: React.FC<ExportAuditViewProps> = ({
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1 max-w-2xl">
-            Export machine-readable data files and full verification audit logs to prove data integrity and satisfy enterprise compliance mandates.
+            Inspect data steward audit logs, edit or delete resolution records, and export verifiable machine-readable audit packages.
           </p>
         </div>
 
@@ -142,7 +203,7 @@ export const ExportAuditView: React.FC<ExportAuditViewProps> = ({
           </button>
         </div>
 
-        {/* Full Audit Package JSON */}
+        {/* Full Compliance Package JSON */}
         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
           <div>
             <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mb-3">
@@ -165,6 +226,219 @@ export const ExportAuditView: React.FC<ExportAuditViewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Flagged Exceptions & Data Steward Audit Logs Section */}
+      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+        {/* Header & Controls */}
+        <div className="p-4 sm:p-5 bg-slate-950/50 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-400">
+              <History className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-white flex items-center space-x-2">
+                <span>Remediation Audit Trail &amp; Exception Logs</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-mono">
+                  {resolutionHistories.length} Records
+                </span>
+              </h4>
+              <p className="text-xs text-slate-400">
+                Logged resolutions from Dashboard and Records &amp; Exceptions. Edit resolution status or delete logs directly.
+              </p>
+            </div>
+          </div>
+
+          {/* Search & Status Filter */}
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <div className="relative min-w-[180px]">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search audit comments..."
+                value={logSearchTerm}
+                onChange={(e) => setLogSearchTerm(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-3 py-1.5 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 text-xs"
+              />
+            </div>
+
+            <select
+              value={logFilterStatus}
+              onChange={(e) => setLogFilterStatus(e.target.value)}
+              className="bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1.5 text-white focus:outline-none focus:border-indigo-500 cursor-pointer font-mono"
+            >
+              <option value="ALL">All Statuses ({resolutionHistories.length})</option>
+              <option value="IN_REVIEW">IN_REVIEW</option>
+              <option value="FIXED_IN_SOURCE">FIXED_IN_SOURCE</option>
+              <option value="FALSE_POSITIVE">FALSE_POSITIVE</option>
+              <option value="WAIVED">WAIVED</option>
+              <option value="OPEN">OPEN</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Audit Logs Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="bg-[#0b0f17] text-slate-400 font-mono text-[11px] border-b border-slate-800">
+              <tr>
+                <th className="py-2.5 px-3">Timestamp</th>
+                <th className="py-2.5 px-3">Issue ID / Ref</th>
+                <th className="py-2.5 px-3 text-center">Status</th>
+                <th className="py-2.5 px-3">Logged By</th>
+                <th className="py-2.5 px-3">Audit Comment &amp; Remediation</th>
+                <th className="py-2.5 px-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60 text-slate-200">
+              {filteredLogs.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-slate-500">
+                    No remediation logs found matching the filter. Log a resolution on any flagged exception to see it recorded here.
+                  </td>
+                </tr>
+              ) : (
+                filteredLogs.map((log) => {
+                  return (
+                    <tr key={log.resolutionId} className="hover:bg-slate-800/30 transition">
+                      <td className="py-3 px-3 font-mono text-slate-400 whitespace-nowrap">
+                        {new Date(log.updatedAt).toLocaleDateString()} {new Date(log.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </td>
+                      <td className="py-3 px-3 font-mono text-indigo-300">
+                        {log.issueId}
+                      </td>
+                      <td className="py-3 px-3 text-center">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
+                          log.resolutionStatus === 'FIXED_IN_SOURCE'
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                            : log.resolutionStatus === 'WAIVED'
+                            ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                            : log.resolutionStatus === 'FALSE_POSITIVE'
+                            ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                            : log.resolutionStatus === 'IN_REVIEW'
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                            : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                        }`}>
+                          {log.resolutionStatus}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-slate-300 whitespace-nowrap">
+                        <div className="flex items-center space-x-1.5">
+                          <User className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>{log.resolvedBy || 'Data Steward'}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-3 text-slate-300 max-w-md">
+                        <p className="truncate" title={log.resolutionComment}>
+                          {log.resolutionComment}
+                        </p>
+                      </td>
+                      <td className="py-3 px-3 text-right">
+                        <div className="flex items-center justify-end space-x-1.5">
+                          <button
+                            onClick={() => handleOpenEdit(log)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                            title="Edit Status & Comment"
+                          >
+                            <Edit3 className="w-3.5 h-3.5 text-indigo-400" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(log.resolutionId)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition cursor-pointer"
+                            title="Delete Log"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Edit Audit Log Modal */}
+      {editingLog && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#0f172a] border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+              <h3 className="text-sm font-bold text-white flex items-center space-x-2">
+                <Edit3 className="w-4 h-4 text-indigo-400" />
+                <span>Edit Remediation Audit Log</span>
+              </h3>
+              <button
+                onClick={() => setEditingLog(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">
+                  Target Issue Reference
+                </label>
+                <input
+                  type="text"
+                  disabled
+                  value={editingLog.issueId}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-500 font-mono text-xs cursor-not-allowed"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">
+                  Resolution Status
+                </label>
+                <select
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value as ResolutionStatus)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-indigo-500 cursor-pointer"
+                >
+                  <option value="OPEN">OPEN (Unaddressed Exception)</option>
+                  <option value="IN_REVIEW">IN_REVIEW (Under QA Review)</option>
+                  <option value="FIXED_IN_SOURCE">FIXED_IN_SOURCE (Corrected in upstream file/source)</option>
+                  <option value="FALSE_POSITIVE">FALSE_POSITIVE (Rule exception verified)</option>
+                  <option value="WAIVED">WAIVED (Accepted business exception)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">
+                  Audit Comment / Remediation Action Notes
+                </label>
+                <textarea
+                  required
+                  rows={4}
+                  value={editComment}
+                  onChange={(e) => setEditComment(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-indigo-500 resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingLog(null)}
+                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-md shadow-indigo-600/30 transition flex items-center space-x-1.5 cursor-pointer"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Update Log</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Compliance Verification Certificate Card (Ready to Print / Present) */}
       <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-md relative overflow-hidden">

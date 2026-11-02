@@ -6,7 +6,18 @@ export type RuleType =
   | 'FORMAT' 
   | 'ALLOWED_VALUES' 
   | 'CROSS_FIELD' 
-  | 'REFERENTIAL_INTEGRITY';
+  | 'REFERENTIAL_INTEGRITY'
+  | 'CHECK_CONSTRAINT';
+
+export type ColumnDataType = 
+  | 'STRING' 
+  | 'NUMBER' 
+  | 'EMAIL' 
+  | 'DATE' 
+  | 'BOOLEAN' 
+  | 'ALLOWED_VALUES' 
+  | 'MULTI_VALUED'
+  | 'IDENTIFIER';
 
 export type Severity = 'CRITICAL' | 'ERROR' | 'WARNING' | 'INFO';
 
@@ -23,7 +34,7 @@ export interface ValidationRule {
   severity: Severity;
   enabled: boolean;
   description: string;
-  category: 'Missing Data' | 'Uniqueness' | 'Data Format' | 'Range & Boundaries' | 'Relationship Logic' | 'Referential';
+  category: 'Missing Data' | 'Uniqueness' | 'Data Format' | 'Range & Boundaries' | 'Relationship Logic' | 'Referential' | 'Atomic / Normalization';
   // Optional second column for cross-field rules (e.g. comparison operator, target column)
   crossFieldConfig?: {
     secondColumn: string;
@@ -31,6 +42,10 @@ export interface ValidationRule {
     conditionalValue?: string;
   };
   referenceList?: string[]; // for referential integrity
+  dataType?: ColumnDataType;
+  isMultiValued?: boolean;
+  delimiter?: string; // e.g. ",", ";", "|"
+  domainRoot?: string; // e.g. "@example.com" or "example.com"
 }
 
 export interface Dataset {
