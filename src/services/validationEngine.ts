@@ -19,7 +19,7 @@ export function runValidation(
         issueId: `drift-${rule.ruleId}-${Date.now()}`,
         runId,
         datasetId: dataset.datasetId,
-        rowNumber: 1,
+        rowNumber: 0, // Schema/Header level (0), never wrongly attribute to row 1
         columnName: rule.columnName,
         ruleId: rule.ruleId,
         ruleName: rule.ruleName,
@@ -41,7 +41,7 @@ export function runValidation(
           issueId: `drift-cross-${rule.ruleId}-${Date.now()}`,
           runId,
           datasetId: dataset.datasetId,
-          rowNumber: 1,
+          rowNumber: 0, // Schema/Header level (0), never wrongly attribute to row 1
           columnName: secondCol,
           ruleId: rule.ruleId,
           ruleName: rule.ruleName,

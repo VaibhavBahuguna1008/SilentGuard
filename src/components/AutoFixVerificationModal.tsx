@@ -325,24 +325,24 @@ export const AutoFixVerificationModal: React.FC<AutoFixVerificationModalProps> =
   const activeSelectedFix = initialProposedFixes.find(f => f.id === selectedFixId) || initialProposedFixes[0];
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
-      <div className="bg-[#0f172a] border border-slate-800 rounded-3xl max-w-5xl w-full p-6 shadow-2xl relative my-auto flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 bg-black/60 dark:bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+      <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-3xl max-w-5xl w-full p-6 shadow-2xl relative my-auto flex flex-col max-h-[92vh]">
         {/* Modal Top Bar */}
-        <div className="flex items-start justify-between pb-4 border-b border-slate-800 shrink-0">
+        <div className="flex items-start justify-between pb-4 border-b border-slate-200 dark:border-slate-800 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+            <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400">
               <Sparkles className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-white">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
                   Auto-Fix Verification &amp; Legitimacy Inspector
                 </h3>
-                <span className="px-2 py-0.5 rounded-full text-xs font-mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                <span className="px-2 py-0.5 rounded-full text-xs font-mono bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30 font-bold">
                   {initialProposedFixes.length} Fixes Proposed
                 </span>
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
                 Review candidate replacement values, inspect their mathematical and referential legitimacy, and verify before writing to dataset.
               </p>
             </div>
@@ -350,55 +350,55 @@ export const AutoFixVerificationModal: React.FC<AutoFixVerificationModalProps> =
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800 transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Explain Backend Legitimacy: How Does Auto-Fix Decide Legitimate Values? */}
-        <div className="mt-4 bg-slate-900/90 border border-indigo-500/20 rounded-2xl p-4 shrink-0">
+        <div className="mt-4 bg-slate-50 dark:bg-[#0e0f13] border border-red-200 dark:border-red-500/30 rounded-2xl p-4 shrink-0">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-indigo-300 font-semibold text-xs">
-              <BrainCircuit className="w-4 h-4 text-indigo-400" />
+            <div className="flex items-center gap-2 text-red-600 dark:text-red-400 font-semibold text-xs">
+              <BrainCircuit className="w-4 h-4 text-red-600 dark:text-red-500" />
               <span>How the Engine Proves Value Legitimacy</span>
             </div>
             <button
               onClick={() => setShowLogicDetails(!showLogicDetails)}
-              className="text-xs text-indigo-400 hover:text-indigo-300 underline cursor-pointer"
+              className="text-xs text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 underline cursor-pointer font-semibold"
             >
               {showLogicDetails ? 'Hide Rationale Principles' : 'Show How Backend Selects Values'}
             </button>
           </div>
 
           {showLogicDetails && (
-            <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs border-t border-slate-800/80 pt-3">
-              <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800">
-                <div className="flex items-center gap-1.5 text-slate-200 font-bold mb-1">
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs border-t border-[#242630] pt-3">
+              <div className="p-2.5 rounded-xl bg-[#0b0c0e] border border-[#242630]">
+                <div className="flex items-center gap-1.5 text-zinc-200 font-bold mb-1">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                   <span>1. Referential Authority</span>
                 </div>
-                <p className="text-slate-400 text-[11px] leading-relaxed">
-                  Values are validated against enterprise master directories (e.g. Master Department Catalog). Unknown codes like <code className="text-rose-400">99</code> are remapped to authorized operational units.
+                <p className="text-zinc-400 text-[11px] leading-relaxed">
+                  Values are validated against enterprise master directories (e.g. Master Department Catalog). Unknown codes like <code className="text-red-400 font-bold">99</code> are remapped to authorized operational units.
                 </p>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800">
-                <div className="flex items-center gap-1.5 text-slate-200 font-bold mb-1">
-                  <Scale className="w-3.5 h-3.5 text-indigo-400" />
+              <div className="p-2.5 rounded-xl bg-[#0b0c0e] border border-[#242630]">
+                <div className="flex items-center gap-1.5 text-zinc-200 font-bold mb-1">
+                  <Scale className="w-3.5 h-3.5 text-red-500" />
                   <span>2. Domain Boundary Clamping</span>
                 </div>
-                <p className="text-slate-400 text-[11px] leading-relaxed">
-                  Negative compensation (<code className="text-rose-400">-$5,000</code>) or negative counts are clamped to realistic, positive operational ranges to eliminate corruption while preserving physical bounds.
+                <p className="text-zinc-400 text-[11px] leading-relaxed">
+                  Negative compensation (<code className="text-red-400 font-bold">-$5,000</code>) or negative counts are clamped to realistic, positive operational ranges to eliminate corruption while preserving physical bounds.
                 </p>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800">
-                <div className="flex items-center gap-1.5 text-slate-200 font-bold mb-1">
-                  <Lock className="w-3.5 h-3.5 text-cyan-400" />
+              <div className="p-2.5 rounded-xl bg-[#0b0c0e] border border-[#242630]">
+                <div className="flex items-center gap-1.5 text-zinc-200 font-bold mb-1">
+                  <Lock className="w-3.5 h-3.5 text-zinc-300" />
                   <span>3. Collision-Free Sequencing</span>
                 </div>
-                <p className="text-slate-400 text-[11px] leading-relaxed">
+                <p className="text-zinc-400 text-[11px] leading-relaxed">
                   Duplicate worker IDs are de-duplicated by scanning active master records and deterministically assigning the next available sequential key (<code className="text-emerald-400">103, 104</code>).
                 </p>
               </div>
@@ -407,9 +407,9 @@ export const AutoFixVerificationModal: React.FC<AutoFixVerificationModalProps> =
         </div>
 
         {/* Candidate Fixes Table */}
-        <div className="mt-4 flex-1 min-h-[220px] overflow-y-auto border border-slate-800 rounded-2xl bg-slate-950/50">
+        <div className="mt-4 flex-1 min-h-[220px] overflow-y-auto border border-[#242630] rounded-2xl bg-[#0b0c0e]">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-[#0b0f17] text-slate-400 font-mono text-[11px] border-b border-slate-800 sticky top-0 z-10">
+            <thead className="bg-[#0e0f13] text-zinc-400 font-mono text-[11px] border-b border-[#242630] sticky top-0 z-10">
               <tr>
                 <th className="py-2.5 px-3">Row &amp; Field</th>
                 <th className="py-2.5 px-3">Corrupt Value</th>
@@ -418,7 +418,7 @@ export const AutoFixVerificationModal: React.FC<AutoFixVerificationModalProps> =
                 <th className="py-2.5 px-3 text-center">Confidence</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60 font-mono">
+            <tbody className="divide-y divide-[#242630] font-mono">
               {paginatedFixes.map((fix) => {
                 const effectiveVal = getEffectiveValue(fix);
                 const isSelected = selectedFixId === fix.id;
@@ -428,14 +428,14 @@ export const AutoFixVerificationModal: React.FC<AutoFixVerificationModalProps> =
                     key={fix.id}
                     onClick={() => setSelectedFixId(fix.id)}
                     className={`transition cursor-pointer ${
-                      isSelected ? 'bg-indigo-950/30' : 'hover:bg-slate-900/60'
+                      isSelected ? 'bg-red-950/30' : 'hover:bg-zinc-800/40'
                     }`}
                   >
                     {/* Row & Field */}
                     <td className="py-3 px-3">
                       <div className="font-bold text-white flex items-center gap-1.5">
-                        <span className="text-slate-400 text-[11px]">#{fix.rowNumber}</span>
-                        <span className="text-indigo-300">{fix.columnName}</span>
+                        <span className="text-zinc-400 text-[11px]">#{fix.rowNumber}</span>
+                        <span className="text-red-400">{fix.columnName}</span>
                       </div>
                       <span className="text-[10px] text-slate-500 font-sans block mt-0.5">
                         {fix.ruleCategory}
@@ -523,14 +523,14 @@ export const AutoFixVerificationModal: React.FC<AutoFixVerificationModalProps> =
               >
                 &larr; Previous 50
               </button>
-              <span className="font-mono text-xs text-indigo-300 font-bold px-1">
+              <span className="font-mono text-xs text-red-400 font-bold px-1">
                 {clampedFixPage} / {totalFixPages}
               </span>
               <button
                 type="button"
                 onClick={() => setFixPage(p => Math.min(totalFixPages, p + 1))}
                 disabled={clampedFixPage === totalFixPages}
-                className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-slate-200 text-xs cursor-pointer disabled:cursor-not-allowed transition"
+                className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 text-zinc-200 text-xs cursor-pointer disabled:cursor-not-allowed transition"
               >
                 Next 50 &rarr;
               </button>
@@ -540,9 +540,9 @@ export const AutoFixVerificationModal: React.FC<AutoFixVerificationModalProps> =
 
         {/* Selected Fix Deep Dive Inspection Footer */}
         {activeSelectedFix && (
-          <div className="mt-3 p-3 bg-slate-900/60 border border-slate-800 rounded-xl text-xs font-sans shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="mt-3 p-3 bg-[#0e0f13] border border-[#242630] rounded-xl text-xs font-sans shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <Info className="w-4 h-4 text-indigo-400 shrink-0" />
+              <Info className="w-4 h-4 text-red-500 shrink-0" />
               <div>
                 <span className="font-semibold text-slate-300">
                   Verification Detail for Row #{activeSelectedFix.rowNumber} ({activeSelectedFix.columnName}):

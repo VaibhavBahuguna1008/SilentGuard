@@ -136,21 +136,21 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-[#0f172a] border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+    <div className="fixed inset-0 z-50 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-[#131418] border border-slate-200 dark:border-[#242630] rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-[#242630]">
           <div>
-            <h3 className="text-base font-bold text-white flex items-center space-x-2">
-              <UploadCloud className="w-5 h-5 text-indigo-400" />
+            <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+              <UploadCloud className="w-5 h-5 text-red-600 dark:text-red-500" />
               <span>Upload CSV Dataset to PostgreSQL</span>
             </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-600 dark:text-zinc-400 mt-0.5">
               Input CSV files for structural parsing and Spring Boot PostgreSQL ingestion.
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:text-zinc-400 dark:hover:text-white dark:hover:bg-zinc-800 transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -158,37 +158,21 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
         {/* Demo Seed Presets (One-click) */}
         <div className="mt-4">
-          <label className="text-xs font-bold text-slate-300 block mb-2">
+          <label className="text-xs font-bold text-slate-700 dark:text-zinc-300 block mb-2">
             Quick Load Synthetic Datasets with Seeded Errors:
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <button
               type="button"
-              onClick={() => handleLoadDemo('employee')}
-              className="flex items-start p-2.5 rounded-xl border border-slate-800 bg-slate-900/60 hover:bg-slate-800/60 text-left transition cursor-pointer group"
-            >
-              <Users className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5 mr-2" />
-              <div>
-                <span className="text-xs font-semibold text-slate-200 block group-hover:text-indigo-300">
-                  Employee Master
-                </span>
-                <span className="text-[10px] text-slate-500 block leading-tight">
-                  8 rows • Missing email, negative salary, duplicate ID
-                </span>
-              </div>
-            </button>
-
-            <button
-              type="button"
               onClick={() => handleLoadDemo('motherson')}
-              className="flex items-start p-2.5 rounded-xl border border-slate-800 bg-slate-900/60 hover:bg-slate-800/60 text-left transition cursor-pointer group"
+              className="flex items-start p-2.5 rounded-xl border border-red-200 dark:border-red-500/30 bg-red-50/70 hover:bg-red-100/70 dark:bg-red-950/20 dark:hover:bg-red-950/30 text-left transition cursor-pointer group"
             >
-              <Building2 className="w-4 h-4 text-amber-400 shrink-0 mt-0.5 mr-2" />
+              <Building2 className="w-4 h-4 text-red-600 dark:text-red-500 shrink-0 mt-0.5 mr-2" />
               <div>
-                <span className="text-xs font-semibold text-slate-200 block group-hover:text-amber-300">
+                <span className="text-xs font-semibold text-slate-900 dark:text-white block group-hover:text-red-700 dark:group-hover:text-red-300">
                   Motherson Parts
                 </span>
-                <span className="text-[10px] text-slate-500 block leading-tight">
+                <span className="text-[10px] text-slate-600 dark:text-zinc-400 block leading-tight">
                   8 rows • Chronology mismatch, negative quantity
                 </span>
               </div>
@@ -196,15 +180,31 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
             <button
               type="button"
-              onClick={() => handleLoadDemo('orders')}
-              className="flex items-start p-2.5 rounded-xl border border-slate-800 bg-slate-900/60 hover:bg-slate-800/60 text-left transition cursor-pointer group"
+              onClick={() => handleLoadDemo('employee')}
+              className="flex items-start p-2.5 rounded-xl border border-slate-200 dark:border-[#242630] bg-slate-50 hover:bg-slate-100 dark:bg-[#0b0c0e] dark:hover:bg-zinc-800/40 text-left transition cursor-pointer group"
             >
-              <CreditCard className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5 mr-2" />
+              <Users className="w-4 h-4 text-slate-500 dark:text-zinc-400 shrink-0 mt-0.5 mr-2" />
               <div>
-                <span className="text-xs font-semibold text-slate-200 block group-hover:text-emerald-300">
+                <span className="text-xs font-semibold text-slate-800 dark:text-zinc-200 block group-hover:text-slate-900 dark:group-hover:text-white">
+                  Employee Master
+                </span>
+                <span className="text-[10px] text-slate-500 dark:text-zinc-500 block leading-tight">
+                  8 rows • Missing email, negative salary, duplicate ID
+                </span>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleLoadDemo('orders')}
+              className="flex items-start p-2.5 rounded-xl border border-slate-200 dark:border-[#242630] bg-slate-50 hover:bg-slate-100 dark:bg-[#0b0c0e] dark:hover:bg-zinc-800/40 text-left transition cursor-pointer group"
+            >
+              <CreditCard className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5 mr-2" />
+              <div>
+                <span className="text-xs font-semibold text-slate-800 dark:text-zinc-200 block group-hover:text-emerald-700 dark:group-hover:text-emerald-300">
                   Financial Orders
                 </span>
-                <span className="text-[10px] text-slate-500 block leading-tight">
+                <span className="text-[10px] text-slate-500 dark:text-zinc-500 block leading-tight">
                   8 rows • Transaction order amounts &amp; currency
                 </span>
               </div>
@@ -219,13 +219,13 @@ export const UploadModal: React.FC<UploadModalProps> = ({
             onDragLeave={() => setDragActive(false)}
             onDrop={handleDrop}
             className={`border-2 border-dashed rounded-xl p-6 text-center transition ${
-              dragActive ? 'border-indigo-500 bg-indigo-500/10' : 'border-slate-800 bg-slate-950/40 hover:border-slate-700'
+              dragActive ? 'border-red-600 bg-red-50 dark:bg-red-600/10' : 'border-slate-300 dark:border-[#242630] bg-slate-50/50 dark:bg-[#0b0c0e] hover:border-red-500 dark:hover:border-red-600/40'
             }`}
           >
-            <FileSpreadsheet className="w-8 h-8 text-indigo-400 mx-auto mb-2" />
-            <p className="text-xs text-slate-300 font-medium">
+            <FileSpreadsheet className="w-8 h-8 text-red-600 dark:text-red-500 mx-auto mb-2" />
+            <p className="text-xs text-slate-700 dark:text-zinc-300 font-medium">
               Drag &amp; drop a CSV file here, or{' '}
-              <label className="text-indigo-400 hover:text-indigo-300 cursor-pointer underline">
+              <label className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 cursor-pointer underline font-semibold">
                 browse files
                 <input
                   type="file"
@@ -239,7 +239,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                 />
               </label>
             </p>
-            <p className="text-[11px] text-slate-500 mt-1">
+            <p className="text-[11px] text-slate-500 dark:text-zinc-500 mt-1">
               Supports standard comma-delimited RFC 4180 CSV files up to 50MB
             </p>
           </div>
@@ -247,24 +247,24 @@ export const UploadModal: React.FC<UploadModalProps> = ({
           {/* Form Meta */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
             <div>
-              <label className="block text-slate-300 font-medium mb-1">Target Filename</label>
+              <label className="block text-slate-700 dark:text-zinc-300 font-medium mb-1">Target Filename</label>
               <input
                 type="text"
                 placeholder="dataset_name.csv"
                 value={fileName}
                 onChange={(e) => setFileName(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono text-xs"
+                className="w-full bg-white dark:bg-[#0b0c0e] border border-slate-200 dark:border-[#242630] rounded-xl px-3 py-2 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:border-red-600 font-mono text-xs shadow-2xs"
               />
             </div>
 
             <div>
-              <label className="block text-slate-300 font-medium mb-1">Source System Designation</label>
+              <label className="block text-slate-700 dark:text-zinc-300 font-medium mb-1">Source System Designation</label>
               <input
                 type="text"
-                placeholder="e.g. SAP ERP, Workday, Inbound Partner FTP"
+                placeholder="e.g. Motherson MES, SAP ERP, Workday"
                 value={sourceSystem}
                 onChange={(e) => setSourceSystem(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                className="w-full bg-white dark:bg-[#0b0c0e] border border-slate-200 dark:border-[#242630] rounded-xl px-3 py-2 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:border-red-600 text-xs shadow-2xs"
               />
             </div>
           </div>
@@ -272,29 +272,29 @@ export const UploadModal: React.FC<UploadModalProps> = ({
           {/* Raw CSV Textarea */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-slate-300 font-medium text-xs">CSV Raw Content / Edit</label>
-              <span className="text-[11px] text-slate-400 font-mono">
+              <label className="text-slate-700 dark:text-zinc-300 font-medium text-xs">CSV Raw Content / Edit</label>
+              <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono">
                 {previewInfo ? `${previewInfo.rowCount} records • ${previewInfo.columns.length} columns` : ''}
               </span>
             </div>
             <textarea
               rows={5}
               required
-              placeholder="employee_id,name,email,salary,department_id&#10;101,Amit,amit@example.com,45000,10..."
+              placeholder="part_number,batch_id,quantity,dispatch_date,destination_plant&#10;MTH-4401,LOT-2026-X,120,2026-10-14,Plant-Noida..."
               value={csvContent}
               onChange={(e) => handleCsvTextChange(e.target.value)}
-              className="w-full bg-slate-950 font-mono text-[11px] border border-slate-700 rounded-xl p-3 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500 resize-none"
+              className="w-full bg-white dark:bg-[#0b0c0e] font-mono text-[11px] border border-slate-200 dark:border-[#242630] rounded-xl p-3 text-slate-900 dark:text-zinc-200 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-red-600 resize-none shadow-2xs"
             />
           </div>
 
           {/* Preview / Parse Result Box */}
           {previewInfo && (
-            <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 flex items-center justify-between text-xs">
+            <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-500/30 text-red-800 dark:text-red-300 flex items-center justify-between text-xs">
               <div className="flex items-center space-x-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 <span>
                   Parsed <strong>{previewInfo.rowCount} records</strong> with columns:{' '}
-                  <span className="font-mono text-white text-[11px]">
+                  <span className="font-mono text-slate-900 dark:text-white text-[11px] font-bold">
                     {previewInfo.columns.join(', ')}
                   </span>
                 </span>
@@ -303,32 +303,32 @@ export const UploadModal: React.FC<UploadModalProps> = ({
           )}
 
           {parseError && (
-            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 flex items-center space-x-2 text-xs">
-              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+            <div className="p-3 rounded-xl bg-red-50 dark:bg-rose-500/10 border border-red-200 dark:border-rose-500/20 text-red-700 dark:text-rose-300 flex items-center space-x-2 text-xs">
+              <AlertCircle className="w-4 h-4 text-red-600 dark:text-rose-400 shrink-0" />
               <span>{parseError}</span>
             </div>
           )}
 
           {uploadError && (
-            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 flex items-center space-x-2 text-xs">
-              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+            <div className="p-3 rounded-xl bg-red-50 dark:bg-rose-500/10 border border-red-200 dark:border-rose-500/20 text-red-700 dark:text-rose-300 flex items-center space-x-2 text-xs">
+              <AlertCircle className="w-4 h-4 text-red-600 dark:text-rose-400 shrink-0" />
               <span>{uploadError}</span>
             </div>
           )}
 
-          <div className="flex items-center justify-end space-x-2 pt-4 border-t border-slate-800">
+          <div className="flex items-center justify-end space-x-2 pt-4 border-t border-slate-200 dark:border-[#242630]">
             <button
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-4 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer text-xs"
+              className="px-4 py-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-zinc-400 dark:hover:text-white dark:hover:bg-zinc-800 transition cursor-pointer text-xs"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!previewInfo || previewInfo.rowCount === 0 || isSubmitting}
-              className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-md shadow-indigo-600/30 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center space-x-2 text-xs"
+              className="px-5 py-2 rounded-xl bg-[#e31b23] hover:bg-[#c41219] text-white font-semibold shadow-md shadow-red-950/40 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center space-x-2 text-xs border border-red-500/30"
             >
               {isSubmitting ? (
                 <>

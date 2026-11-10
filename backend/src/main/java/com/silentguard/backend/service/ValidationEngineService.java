@@ -90,7 +90,7 @@ public class ValidationEngineService {
                 driftIssue.setIssueId("drift-" + rule.getRuleId() + "-" + System.currentTimeMillis());
                 driftIssue.setRunId(runId);
                 driftIssue.setDatasetId(dataset.getDatasetId());
-                driftIssue.setRowNumber(1);
+                driftIssue.setRowNumber(0);
                 driftIssue.setColumnName(rule.getColumnName());
                 driftIssue.setRuleId(rule.getRuleId());
                 driftIssue.setRuleName(rule.getRuleName());
@@ -112,7 +112,7 @@ public class ValidationEngineService {
                     crossDrift.setIssueId("drift-cross-" + rule.getRuleId() + "-" + System.currentTimeMillis());
                     crossDrift.setRunId(runId);
                     crossDrift.setDatasetId(dataset.getDatasetId());
-                    crossDrift.setRowNumber(1);
+                    crossDrift.setRowNumber(0);
                     crossDrift.setColumnName(rule.getSecondColumn());
                     crossDrift.setRuleId(rule.getRuleId());
                     crossDrift.setRuleName(rule.getRuleName());

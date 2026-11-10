@@ -230,10 +230,16 @@ public class DataInitializer implements CommandLineRunner {
             );
             log.info("Imported demo motherson dataset: {}", mthDataset.getDatasetId());
 
-            // Run initial validation on each
+            // Run initial validation on each with matching column rules
             List<ValidationRuleEntity> allRules = ruleRepository.findByEnabled(true);
-            validationEngineService.runValidationOnDataset(empDataset, allRules);
-            validationEngineService.runValidationOnDataset(mthDataset, allRules);
+            List<ValidationRuleEntity> empRules = allRules.stream()
+                    .filter(r -> r.getRuleId().startsWith("emp-"))
+                    .toList();
+            List<ValidationRuleEntity> mthRules = allRules.stream()
+                    .filter(r -> r.getRuleId().startsWith("mth-"))
+                    .toList();
+            validationEngineService.runValidationOnDataset(empDataset, empRules.isEmpty() ? allRules : empRules);
+            validationEngineService.runValidationOnDataset(mthDataset, mthRules.isEmpty() ? allRules : mthRules);
 
             log.info("Executed initial validation runs for demo datasets in PostgreSQL.");
         } catch (Exception e) {

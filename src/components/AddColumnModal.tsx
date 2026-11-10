@@ -349,29 +349,29 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-hidden">
-      <div className="bg-[#0f172a] border border-slate-800 rounded-2xl max-w-2xl w-full max-h-[92vh] flex flex-col shadow-2xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-hidden">
+      <div className="bg-white dark:bg-[#131418] border border-slate-200 dark:border-[#242630] rounded-2xl max-w-2xl w-full max-h-[92vh] flex flex-col shadow-2xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Sticky Header - Always visible at top */}
-        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-800 bg-[#0f172a] shrink-0 z-20">
+        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-200 dark:border-[#242630] bg-white dark:bg-[#131418] shrink-0 z-20">
           <div className="flex items-center space-x-3">
-            <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-400">
+            <div className="p-2 rounded-xl bg-red-50 text-red-600 border border-red-200 dark:bg-red-600/20 dark:text-red-500 dark:border-transparent">
               <Plus className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white flex items-center space-x-2">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center space-x-2">
                 <span>Add Column to Schema</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-mono font-medium">
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 dark:bg-red-500/20 dark:text-red-300 dark:border-transparent font-mono font-bold">
                   Dynamic Evolution
                 </span>
               </h3>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-600 dark:text-zinc-400">
                 Configure data type, automatic check constraints, duplicate resolution, and multi-valued handling.
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:text-zinc-400 dark:hover:text-white dark:hover:bg-zinc-800 transition cursor-pointer"
             title="Close / Cancel (Esc)"
           >
             <X className="w-5 h-5" />
@@ -383,8 +383,8 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
           <div className="overflow-y-auto p-4 sm:p-6 space-y-5 flex-1 pr-3">
             {/* Column Name Input */}
             <div>
-              <label className="block text-slate-300 font-semibold mb-1">
-                Column Name <span className="text-rose-400">*</span>
+              <label className="block text-slate-700 dark:text-zinc-300 font-semibold mb-1">
+                Column Name <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -395,7 +395,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                   setColName(e.target.value);
                   setManuallyTouched(false);
                 }}
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono text-xs"
+                className="w-full bg-white dark:bg-[#0b0c0e] border border-slate-200 dark:border-[#242630] rounded-xl px-3.5 py-2 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600/30 font-mono text-xs shadow-2xs"
               />
             </div>
 
@@ -408,7 +408,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                   Duplicate Column Detected: '{collision.original}' already exists in dataset!
                 </span>
               </div>
-              <p className="text-[11px] text-slate-300">
+              <p className="text-[11px] text-zinc-300">
                 Choose how to resolve the collision between the existing column and this new column:
               </p>
 
@@ -419,16 +419,16 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                   onClick={() => setDuplicateResolutionChoice('DISAMBIGUATE')}
                   className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
                     duplicateResolutionChoice === 'DISAMBIGUATE'
-                      ? 'bg-indigo-600/30 border-indigo-500 text-white shadow'
-                      : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:border-slate-700'
+                      ? 'bg-red-600/20 border-red-500 text-white shadow'
+                      : 'bg-[#0b0c0e] border-[#242630] text-zinc-300 hover:border-zinc-700'
                   }`}
                 >
                   <div className="flex items-center space-x-1.5 font-bold mb-1">
-                    <Copy className="w-3.5 h-3.5 text-indigo-400" />
+                    <Copy className="w-3.5 h-3.5 text-red-500" />
                     <span>Disambiguate</span>
                   </div>
-                  <p className="text-[10px] text-slate-400">
-                    Rename with suffix: <code className="text-indigo-300 font-mono">{disambiguatedName}</code>
+                  <p className="text-[10px] text-zinc-400">
+                    Rename with suffix: <code className="text-red-400 font-mono">{disambiguatedName}</code>
                   </p>
                 </button>
 
@@ -438,15 +438,15 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                   onClick={() => setDuplicateResolutionChoice('OVERWRITE')}
                   className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
                     duplicateResolutionChoice === 'OVERWRITE'
-                      ? 'bg-rose-600/30 border-rose-500 text-white shadow'
-                      : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:border-slate-700'
+                      ? 'bg-red-600/30 border-red-500 text-white shadow'
+                      : 'bg-[#0b0c0e] border-[#242630] text-zinc-300 hover:border-zinc-700'
                   }`}
                 >
                   <div className="flex items-center space-x-1.5 font-bold mb-1">
-                    <RefreshCw className="w-3.5 h-3.5 text-rose-400" />
+                    <RefreshCw className="w-3.5 h-3.5 text-red-400" />
                     <span>Overwrite</span>
                   </div>
-                  <p className="text-[10px] text-slate-400">
+                  <p className="text-[10px] text-zinc-400">
                     Replace existing column with new schema &amp; values.
                   </p>
                 </button>
@@ -489,18 +489,18 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
 
           {/* Smart Auto-Inference Notice */}
           {inferredNotice && (
-            <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-200 flex items-start space-x-2.5">
-              <Sparkles className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+            <div className="p-3 rounded-xl bg-red-950/20 border border-red-500/30 text-red-200 flex items-start space-x-2.5">
+              <Sparkles className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
               <div className="flex-1">
-                <span className="font-semibold text-xs text-indigo-300">Automatic Constraint Identification:</span>
-                <p className="text-[11px] text-indigo-200/90 mt-0.5">{inferredNotice}</p>
+                <span className="font-semibold text-xs text-red-300">Automatic Constraint Identification:</span>
+                <p className="text-[11px] text-zinc-300 mt-0.5">{inferredNotice}</p>
               </div>
             </div>
           )}
 
           {/* Data Type Selector */}
           <div>
-            <label className="block text-slate-300 font-semibold mb-1.5">
+            <label className="block text-zinc-300 font-semibold mb-1.5">
               Column Data Type
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -545,8 +545,8 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                   }}
                   className={`p-2 rounded-xl border flex items-center space-x-2 text-left transition cursor-pointer ${
                     dataType === type
-                      ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm'
-                      : 'bg-slate-900/60 text-slate-300 border-slate-800 hover:border-slate-700 hover:text-white'
+                      ? 'bg-[#e31b23] text-white border-red-500 shadow-sm'
+                      : 'bg-[#0b0c0e] text-zinc-300 border-[#242630] hover:border-zinc-700 hover:text-white'
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5 shrink-0" />
@@ -557,9 +557,9 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
           </div>
 
           {/* Constraints & Check Constraints Section */}
-          <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4 space-y-3.5">
-            <h4 className="text-xs font-bold text-slate-200 flex items-center space-x-1.5">
-              <Sliders className="w-3.5 h-3.5 text-indigo-400" />
+          <div className="bg-[#0e0f13] border border-[#242630] rounded-xl p-4 space-y-3.5">
+            <h4 className="text-xs font-bold text-zinc-200 flex items-center space-x-1.5">
+              <Sliders className="w-3.5 h-3.5 text-red-500" />
               <span>Configured Constraints &amp; Validation Checks</span>
             </h4>
 
@@ -570,9 +570,9 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                   type="checkbox"
                   checked={isRequired}
                   onChange={(e) => setIsRequired(e.target.checked)}
-                  className="rounded border-slate-700 text-indigo-600 focus:ring-0 bg-slate-800 cursor-pointer"
+                  className="rounded border-[#242630] text-red-600 accent-red-600 bg-[#0b0c0e] cursor-pointer"
                 />
-                <span className="text-slate-300 font-medium text-[11px]">NOT NULL (Required field)</span>
+                <span className="text-zinc-300 font-medium text-[11px]">NOT NULL (Required field)</span>
               </label>
 
               <label className="flex items-center space-x-2 cursor-pointer">
@@ -580,17 +580,17 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                   type="checkbox"
                   checked={isUnique}
                   onChange={(e) => setIsUnique(e.target.checked)}
-                  className="rounded border-slate-700 text-indigo-600 focus:ring-0 bg-slate-800 cursor-pointer"
+                  className="rounded border-[#242630] text-red-600 accent-red-600 bg-[#0b0c0e] cursor-pointer"
                 />
-                <span className="text-slate-300 font-medium text-[11px]">UNIQUE (No duplicates)</span>
+                <span className="text-zinc-300 font-medium text-[11px]">UNIQUE (No duplicates)</span>
               </label>
             </div>
 
             {/* Email & Domain Root Check Constraint */}
             {(dataType === 'EMAIL' || colName.toLowerCase().includes('email')) && (
-              <div className="p-3 rounded-xl bg-slate-950/70 border border-indigo-500/20 space-y-2">
+              <div className="p-3 rounded-xl bg-[#0b0c0e] border border-red-500/20 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-indigo-300 text-[11px] flex items-center space-x-1.5">
+                  <span className="font-semibold text-red-400 text-[11px] flex items-center space-x-1.5">
                     <Mail className="w-3.5 h-3.5" />
                     <span>Email Check Constraint &amp; Domain Root Validation</span>
                   </span>
@@ -599,15 +599,15 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                       type="checkbox"
                       checked={hasDomainCheck}
                       onChange={(e) => setHasDomainCheck(e.target.checked)}
-                      className="rounded border-slate-700 text-indigo-600 bg-slate-800"
+                      className="rounded border-zinc-700 text-red-600 bg-zinc-900 focus:ring-red-600"
                     />
-                    <span className="text-[10px] text-slate-400">Enforce Specific Domain Root</span>
+                    <span className="text-[10px] text-zinc-400">Enforce Specific Domain Root</span>
                   </label>
                 </div>
 
                 {hasDomainCheck && (
                   <div>
-                    <label className="block text-[10px] text-slate-400 mb-0.5">
+                    <label className="block text-[10px] text-zinc-400 mb-0.5">
                       Required Domain Root (e.g. @corp.com, @example.com):
                     </label>
                     <input
@@ -615,7 +615,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                       value={domainRoot}
                       onChange={(e) => setDomainRoot(e.target.value)}
                       placeholder="@company.com"
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white font-mono text-xs focus:outline-none focus:border-indigo-500"
+                      className="w-full bg-[#0b0c0e] border border-[#242630] rounded-lg px-2.5 py-1 text-white font-mono text-xs focus:outline-none focus:border-red-600"
                     />
                   </div>
                 )}
@@ -625,7 +625,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
             {/* Custom Format Pattern / Regex */}
             {hasFormatCheck && (
               <div>
-                <label className="block text-[11px] text-slate-400 mb-1">
+                <label className="block text-[11px] text-zinc-400 mb-1">
                   Format Regex Pattern:
                 </label>
                 <input
@@ -633,7 +633,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                   value={formatPattern}
                   onChange={(e) => setFormatPattern(e.target.value)}
                   placeholder="Regex pattern (e.g. ^\d{4}-\d{2}-\d{2}$)"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono text-xs focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-[#0b0c0e] border border-[#242630] rounded-lg px-2.5 py-1.5 text-white font-mono text-xs focus:outline-none focus:border-red-600"
                 />
               </div>
             )}
@@ -642,12 +642,12 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
             {(dataType === 'NUMBER' || hasMinVal || hasMaxVal) && (
               <div className="grid grid-cols-2 gap-3 pt-1">
                 <div>
-                  <label className="flex items-center space-x-1.5 text-[11px] text-slate-300 mb-1 cursor-pointer">
+                  <label className="flex items-center space-x-1.5 text-[11px] text-zinc-300 mb-1 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={hasMinVal}
                       onChange={(e) => setHasMinVal(e.target.checked)}
-                      className="rounded border-slate-700 text-indigo-600 bg-slate-800"
+                      className="rounded border-zinc-700 text-red-600 bg-zinc-900 focus:ring-red-600"
                     />
                     <span>Minimum Value Bound (&gt;=)</span>
                   </label>
@@ -656,18 +656,18 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                       type="number"
                       value={minVal}
                       onChange={(e) => setMinVal(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white font-mono text-xs"
+                      className="w-full bg-[#0b0c0e] border border-[#242630] rounded-lg px-2.5 py-1 text-white font-mono text-xs focus:outline-none focus:border-red-600"
                     />
                   )}
                 </div>
 
                 <div>
-                  <label className="flex items-center space-x-1.5 text-[11px] text-slate-300 mb-1 cursor-pointer">
+                  <label className="flex items-center space-x-1.5 text-[11px] text-zinc-300 mb-1 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={hasMaxVal}
                       onChange={(e) => setHasMaxVal(e.target.checked)}
-                      className="rounded border-slate-700 text-indigo-600 bg-slate-800"
+                      className="rounded border-zinc-700 text-red-600 bg-zinc-900 focus:ring-red-600"
                     />
                     <span>Maximum Value Bound (&lt;=)</span>
                   </label>
@@ -676,7 +676,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                       type="number"
                       value={maxVal}
                       onChange={(e) => setMaxVal(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white font-mono text-xs"
+                      className="w-full bg-[#0b0c0e] border border-[#242630] rounded-lg px-2.5 py-1 text-white font-mono text-xs focus:outline-none focus:border-red-600"
                     />
                   )}
                 </div>
@@ -686,7 +686,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
             {/* Allowed Values Enum */}
             {(dataType === 'ALLOWED_VALUES' || hasAllowedValues) && (
               <div className="pt-1">
-                <label className="block text-[11px] text-slate-300 mb-1">
+                <label className="block text-[11px] text-zinc-300 mb-1">
                   Allowed Options (Comma-Separated Whitelist):
                 </label>
                 <input
@@ -694,16 +694,16 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                   value={allowedValues}
                   onChange={(e) => setAllowedValues(e.target.value)}
                   placeholder="e.g. Active, Inactive, Pending"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono text-xs focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-[#0b0c0e] border border-[#242630] rounded-lg px-2.5 py-1.5 text-white font-mono text-xs focus:outline-none focus:border-red-600"
                 />
               </div>
             )}
 
             {/* Multi-Valued Attribute Configuration & 1NF Normalization */}
-            <div className="pt-2 border-t border-slate-800 space-y-2">
+            <div className="pt-2 border-t border-[#242630] space-y-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <label className="flex items-center space-x-2 cursor-pointer font-semibold text-slate-200 text-[11px]">
+                  <label className="flex items-center space-x-2 cursor-pointer font-semibold text-zinc-200 text-[11px]">
                     <input
                       type="checkbox"
                       checked={isMultiValued}
@@ -711,22 +711,22 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                         setIsMultiValued(e.target.checked);
                         if (e.target.checked) setEnforce1NFAtomic(false);
                       }}
-                      className="rounded border-slate-700 text-indigo-600 bg-slate-800"
+                      className="rounded border-zinc-700 text-red-600 bg-zinc-900 focus:ring-red-600"
                     />
                     <span>Allow Multi-Valued Attribute (Lists / Sets)</span>
                   </label>
-                  <p className="text-[10px] text-slate-400 mt-0.5">
-                    Permits delimited items (e.g. <code className="text-indigo-300 font-mono">React, Java, SQL</code>). Constraints validate each individual item.
+                  <p className="text-[10px] text-zinc-400 mt-0.5">
+                    Permits delimited items (e.g. <code className="text-red-400 font-mono">React, Java, SQL</code>). Constraints validate each individual item.
                   </p>
                 </div>
 
                 {isMultiValued && (
                   <div className="flex items-center space-x-1.5">
-                    <span className="text-[10px] text-slate-400">Delimiter:</span>
+                    <span className="text-[10px] text-zinc-400">Delimiter:</span>
                     <select
                       value={delimiter}
                       onChange={(e) => setDelimiter(e.target.value)}
-                      className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-0.5 text-white text-xs font-mono"
+                      className="bg-[#0b0c0e] border border-[#242630] rounded-lg px-2 py-0.5 text-white text-xs font-mono"
                     >
                       <option value=",">Comma (,)</option>
                       <option value=";">Semicolon (;)</option>
@@ -742,9 +742,9 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                     type="checkbox"
                     checked={enforce1NFAtomic}
                     onChange={(e) => setEnforce1NFAtomic(e.target.checked)}
-                    className="rounded border-slate-700 text-indigo-600 bg-slate-800"
+                    className="rounded border-zinc-700 text-red-600 bg-zinc-900 focus:ring-red-600"
                   />
-                  <span className="text-[10px] text-slate-300">
+                  <span className="text-[10px] text-zinc-300">
                     Enforce First Normal Form (1NF) Atomic Check (Flag multi-valued comma lists as quality violations)
                   </span>
                 </label>
@@ -754,7 +754,7 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
 
             {/* Initial Default Value */}
             <div>
-              <label className="block text-slate-300 font-semibold mb-1">
+              <label className="block text-zinc-300 font-semibold mb-1">
                 Default Initial Value for Existing Records (Optional)
               </label>
               <input
@@ -762,14 +762,14 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                 placeholder="Leave empty to test missing/blank cell detection..."
                 value={defaultVal}
                 onChange={(e) => setDefaultVal(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono text-xs"
+                className="w-full bg-[#0b0c0e] border border-[#242630] rounded-xl px-3.5 py-2 text-white placeholder-zinc-500 focus:outline-none focus:border-red-600 font-mono text-xs"
               />
             </div>
 
             {/* Rule Severity Classification */}
-            <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-3.5">
+            <div className="bg-[#0e0f13] border border-[#242630] rounded-xl p-3.5">
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-slate-300 font-semibold text-[11px]">
+                <label className="block text-zinc-300 font-semibold text-[11px]">
                   Constraint Severity Classification
                 </label>
                 <span className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase ${
@@ -777,12 +777,12 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                     ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
                     : severity === 'ERROR'
                     ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                    : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                    : 'bg-zinc-700/30 text-zinc-300 border border-zinc-600/30'
                 }`}>
                   {severity} Level
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 mb-2">
+              <p className="text-[10px] text-zinc-400 mb-2">
                 Defines the penalty weight and blocking behavior if records violate this column's constraints:
               </p>
               <div className="grid grid-cols-3 gap-2">
@@ -792,11 +792,11 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                   className={`p-2 rounded-lg border text-left cursor-pointer transition ${
                     severity === 'CRITICAL'
                       ? 'bg-rose-500/20 border-rose-500 text-white shadow-sm'
-                      : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white'
+                      : 'bg-[#0b0c0e] border-[#242630] text-zinc-400 hover:text-white'
                   }`}
                 >
                   <span className="block font-bold text-rose-400 text-[11px]">CRITICAL</span>
-                  <span className="text-[9px] text-slate-400 block mt-0.5">Halts ingest / Primary Key corruptions</span>
+                  <span className="text-[9px] text-zinc-400 block mt-0.5">Halts ingest / Primary Key corruptions</span>
                 </button>
                 <button
                   type="button"
@@ -804,44 +804,44 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({
                   className={`p-2 rounded-lg border text-left cursor-pointer transition ${
                     severity === 'ERROR'
                       ? 'bg-amber-500/20 border-amber-500 text-white shadow-sm'
-                      : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white'
+                      : 'bg-[#0b0c0e] border-[#242630] text-zinc-400 hover:text-white'
                   }`}
                 >
                   <span className="block font-bold text-amber-400 text-[11px]">ERROR</span>
-                  <span className="text-[9px] text-slate-400 block mt-0.5">Domain syntax or business defects</span>
+                  <span className="text-[9px] text-zinc-400 block mt-0.5">Domain syntax or business defects</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setSeverity('WARNING')}
                   className={`p-2 rounded-lg border text-left cursor-pointer transition ${
                     severity === 'WARNING'
-                      ? 'bg-blue-500/20 border-blue-500 text-white shadow-sm'
-                      : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white'
+                      ? 'bg-red-500/20 border-red-500 text-white shadow-sm'
+                      : 'bg-[#0b0c0e] border-[#242630] text-zinc-400 hover:text-white'
                   }`}
                 >
-                  <span className="block font-bold text-blue-400 text-[11px]">WARNING</span>
-                  <span className="text-[9px] text-slate-400 block mt-0.5">Non-blocking / 1NF anomaly warnings</span>
+                  <span className="block font-bold text-red-400 text-[11px]">WARNING</span>
+                  <span className="text-[9px] text-zinc-400 block mt-0.5">Non-blocking / 1NF anomaly warnings</span>
                 </button>
               </div>
             </div>
           </div>
 
           {/* Sticky Form Actions Footer - Always visible at bottom */}
-          <div className="flex items-center justify-between p-3.5 sm:px-6 border-t border-slate-800 bg-[#0b1120] shrink-0 z-20">
-            <span className="text-[10px] text-slate-400 hidden sm:inline">
-              Press <kbd className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 font-mono text-slate-300">Esc</kbd> to cancel
+          <div className="flex items-center justify-between p-3.5 sm:px-6 border-t border-[#242630] bg-[#0e0f13] shrink-0 z-20">
+            <span className="text-[10px] text-zinc-400 hidden sm:inline">
+              Press <kbd className="px-1.5 py-0.5 rounded bg-[#14151a] border border-[#242630] font-mono text-zinc-300">Esc</kbd> to cancel
             </span>
             <div className="flex items-center space-x-2.5 ml-auto">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer font-medium text-xs"
+                className="px-4 py-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition cursor-pointer font-medium text-xs"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-md shadow-indigo-600/30 transition flex items-center space-x-1.5 cursor-pointer text-xs"
+                className="px-5 py-2 rounded-xl bg-[#e31b23] hover:bg-[#c41219] text-white font-semibold shadow-md shadow-red-950/40 transition flex items-center space-x-1.5 cursor-pointer text-xs border border-red-500/30"
               >
                 <Plus className="w-4 h-4" />
                 <span>Add Column &amp; Activate Constraints</span>

@@ -69,10 +69,22 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
   const [exceptionsPage, setExceptionsPage] = useState<number>(1);
   const exceptionsPerPage = 12;
 
+  // Filter issues strictly relevant to the active dataset columns and non-synthetic row numbers
+  const relevantIssues = useMemo(() => {
+    const colSet = new Set(dataset.columns);
+    return issues.filter(issue => 
+      colSet.has(issue.columnName) &&
+      issue.foundValue !== '<MISSING HEADER>' &&
+      issue.foundValue !== '<MISSING SECOND COLUMN>' &&
+      issue.rowNumber > 0 &&
+      issue.rowNumber <= dataset.rowCount
+    );
+  }, [issues, dataset.columns, dataset.rowCount]);
+
   // Map issues by rowNumber and columnName for instant O(1) cell lookup
   const issueMap = useMemo(() => {
     const map = new Map<string, ValidationIssue[]>();
-    for (const issue of issues) {
+    for (const issue of relevantIssues) {
       const key = `${issue.rowNumber}:${issue.columnName}`;
       if (!map.has(key)) {
         map.set(key, []);
@@ -80,28 +92,28 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
       map.get(key)!.push(issue);
     }
     return map;
-  }, [issues]);
+  }, [relevantIssues]);
 
   // Set of row numbers with issues for instant O(1) lookup
   const rowsWithIssues = useMemo(() => {
-    return new Set(issues.map(i => i.rowNumber));
-  }, [issues]);
+    return new Set(relevantIssues.map(i => i.rowNumber));
+  }, [relevantIssues]);
 
   // Pre-index issues by rowNumber for instant O(1) row queries
   const issuesByRowNumber = useMemo(() => {
     const map = new Map<number, ValidationIssue[]>();
-    for (const issue of issues) {
+    for (const issue of relevantIssues) {
       const list = map.get(issue.rowNumber) || [];
       list.push(issue);
       map.set(issue.rowNumber, list);
     }
     return map;
-  }, [issues]);
+  }, [relevantIssues]);
 
   // Pre-index severities by rowNumber for instant O(1) severity filtering (eliminates O(N*M) scanning on 25,000 rows)
   const severitiesByRow = useMemo(() => {
     const map = new Map<number, Set<string>>();
-    for (const issue of issues) {
+    for (const issue of relevantIssues) {
       let set = map.get(issue.rowNumber);
       if (!set) {
         set = new Set<string>();
@@ -110,16 +122,16 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
       set.add(issue.severity);
     }
     return map;
-  }, [issues]);
+  }, [relevantIssues]);
 
   // Pre-index issue counts by column name for instant O(1) header counts
   const issuesCountByCol = useMemo(() => {
     const map = new Map<string, number>();
-    for (const issue of issues) {
+    for (const issue of relevantIssues) {
       map.set(issue.columnName, (map.get(issue.columnName) || 0) + 1);
     }
     return map;
-  }, [issues]);
+  }, [relevantIssues]);
 
   // Reset pagination to page 1 whenever filters change
   useEffect(() => {
@@ -167,13 +179,14 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
   const endRecordIndex = Math.min(clampedCurrentPage * pageSize, filteredRows.length);
 
   // Paginated exceptions for card grid
-  const totalExceptionPages = Math.max(1, Math.ceil(issues.length / exceptionsPerPage));
+  const displayExceptions = relevantIssues.length > 0 ? relevantIssues : issues;
+  const totalExceptionPages = Math.max(1, Math.ceil(displayExceptions.length / exceptionsPerPage));
   const clampedExceptionPage = Math.min(Math.max(1, exceptionsPage), totalExceptionPages);
 
   const paginatedExceptions = useMemo(() => {
     const start = (clampedExceptionPage - 1) * exceptionsPerPage;
-    return issues.slice(start, start + exceptionsPerPage);
-  }, [issues, clampedExceptionPage, exceptionsPerPage]);
+    return displayExceptions.slice(start, start + exceptionsPerPage);
+  }, [displayExceptions, clampedExceptionPage, exceptionsPerPage]);
 
   // Handle Edit Row
   const startEditingRow = (index: number, row: Record<string, string>) => {
@@ -292,7 +305,7 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
               onChange={(e) => {
                 setEditedRowData({ ...editedRowData, [col]: e.target.value });
               }}
-              className="flex-1 bg-slate-950 border border-indigo-500 rounded px-2 py-1 text-xs text-white focus:outline-none font-mono"
+              className="flex-1 bg-[#0b0c0e] border border-red-600 rounded px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-red-600 font-mono"
             />
             <input
               type="date"
@@ -302,7 +315,7 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
                   setEditedRowData({ ...editedRowData, [col]: e.target.value });
                 }
               }}
-              className="w-7 h-7 bg-slate-900 border border-indigo-500/60 rounded p-0 text-xs text-white cursor-pointer"
+              className="w-7 h-7 bg-[#14151a] border border-red-600/60 rounded p-0 text-xs text-white cursor-pointer"
               title="Pick date from calendar"
             />
           </div>
@@ -316,7 +329,7 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
                   const iso = !isNaN(parsed) ? new Date(parsed).toISOString().split('T')[0] : '2026-10-15';
                   setEditedRowData({ ...editedRowData, [col]: iso });
                 }}
-                className="px-1.5 py-0.2 rounded bg-indigo-600/40 text-indigo-300 hover:bg-indigo-600 transition"
+                className="px-1.5 py-0.2 rounded bg-red-600/30 text-red-300 hover:bg-red-600 hover:text-white transition"
               >
                 Auto ISO
               </button>
@@ -334,15 +347,15 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
         <select
           value={cellVal}
           onChange={(e) => setEditedRowData({ ...editedRowData, [col]: e.target.value })}
-          className="w-full min-w-[125px] bg-slate-950 border border-indigo-500 rounded px-2 py-1 text-xs text-white focus:outline-none font-mono cursor-pointer"
+          className="w-full min-w-[125px] bg-[#0b0c0e] border border-red-600 rounded px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-red-600 font-mono cursor-pointer"
         >
           {!hasCurrent && cellVal && (
-            <option value={cellVal} className="bg-rose-950 text-rose-300">
+            <option value={cellVal} className="bg-red-950 text-red-300">
               ⚠️ Current: {cellVal}
             </option>
           )}
           {standardStatuses.map((s) => (
-            <option key={s} value={s} className="bg-slate-900 text-white">
+            <option key={s} value={s} className="bg-[#14151a] text-white">
               {s}
             </option>
           ))}
@@ -356,15 +369,15 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
         <select
           value={cellVal}
           onChange={(e) => setEditedRowData({ ...editedRowData, [col]: e.target.value })}
-          className="w-full min-w-[145px] bg-slate-950 border border-indigo-500 rounded px-2 py-1 text-xs text-white focus:outline-none font-mono cursor-pointer"
+          className="w-full min-w-[145px] bg-[#0b0c0e] border border-red-600 rounded px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-red-600 font-mono cursor-pointer"
         >
           {MASTER_DEPARTMENT_CATALOG.map((dept) => (
-            <option key={dept.code} value={dept.code} className="bg-slate-900 text-white">
+            <option key={dept.code} value={dept.code} className="bg-[#14151a] text-white">
               {dept.code} ({dept.name})
             </option>
           ))}
           {!MASTER_DEPARTMENT_CATALOG.some(d => d.code === cellVal) && cellVal && (
-            <option value={cellVal} className="bg-rose-950 text-rose-300">
+            <option value={cellVal} className="bg-red-950 text-red-300">
               ⚠️ Unknown Code: {cellVal}
             </option>
           )}
@@ -381,7 +394,7 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
           value={cellVal}
           onChange={(e) => setEditedRowData({ ...editedRowData, [col]: e.target.value })}
           placeholder="Number >= 0"
-          className="w-full min-w-[110px] bg-slate-950 border border-indigo-500 rounded px-2 py-1 text-xs text-white focus:outline-none font-mono"
+          className="w-full min-w-[110px] bg-[#0b0c0e] border border-red-600 rounded px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-red-600 font-mono"
         />
       );
     }
@@ -394,7 +407,7 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
           value={cellVal}
           onChange={(e) => setEditedRowData({ ...editedRowData, [col]: e.target.value })}
           placeholder="user@example.com"
-          className="w-full min-w-[165px] bg-slate-950 border border-indigo-500 rounded px-2 py-1 text-xs text-white focus:outline-none font-mono"
+          className="w-full min-w-[165px] bg-[#0b0c0e] border border-red-600 rounded px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-red-600 font-mono"
         />
       );
     }
@@ -405,7 +418,7 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
         type="text"
         value={cellVal}
         onChange={(e) => setEditedRowData({ ...editedRowData, [col]: e.target.value })}
-        className="w-full min-w-[110px] bg-slate-950 border border-indigo-500 rounded px-2 py-1 text-xs text-white focus:outline-none font-mono"
+        className="w-full min-w-[110px] bg-[#0b0c0e] border border-red-600 rounded px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-red-600 font-mono"
       />
     );
   };
@@ -452,28 +465,28 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
   return (
     <div className="space-y-4">
       {/* Control bar */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-[#131418] border border-slate-200 dark:border-[#242630] rounded-2xl p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Search & Filters */}
         <div className="flex flex-wrap items-center gap-2.5">
           <div className="relative min-w-[200px]">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-400" />
             <input
               type="text"
               placeholder="Search records..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-slate-950/60 border border-slate-800 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+              className="w-full bg-slate-50 dark:bg-[#0b0c0e] border border-slate-200 dark:border-[#242630] rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-900 dark:text-zinc-200 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600/30"
             />
           </div>
 
           {/* Mode toggle */}
-          <div className="inline-flex rounded-xl bg-slate-950/60 p-1 border border-slate-800 text-xs">
+          <div className="inline-flex rounded-xl bg-slate-100 dark:bg-[#0b0c0e] p-1 border border-slate-200 dark:border-[#242630] text-xs">
             <button
               onClick={() => setFilterMode('ALL')}
               className={`px-3 py-1 rounded-lg font-medium transition cursor-pointer ${
                 filterMode === 'ALL'
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-[#e31b23] text-white shadow-sm font-semibold'
+                  : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               All Records ({dataset.rowCount})
@@ -482,12 +495,12 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
               onClick={() => setFilterMode('ISSUES_ONLY')}
               className={`px-3 py-1 rounded-lg font-medium transition flex items-center space-x-1 cursor-pointer ${
                 filterMode === 'ISSUES_ONLY'
-                  ? 'bg-rose-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-red-700 text-white shadow-sm font-semibold'
+                  : 'text-slate-600 dark:text-zinc-400 hover:text-red-700 dark:hover:text-white'
               }`}
             >
               <span>Exceptions Only</span>
-              <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-rose-500/30 text-rose-200">
+              <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-red-100 text-red-700 border border-red-200 dark:bg-red-950 dark:text-red-200 dark:border-red-800 font-bold">
                 {rowsWithIssues.size}
               </span>
             </button>
@@ -495,8 +508,8 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
               onClick={() => setFilterMode('CLEAN_ONLY')}
               className={`px-3 py-1 rounded-lg font-medium transition cursor-pointer ${
                 filterMode === 'CLEAN_ONLY'
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-emerald-600 text-white shadow-sm font-semibold'
+                  : 'text-slate-600 dark:text-zinc-400 hover:text-emerald-700 dark:hover:text-white'
               }`}
             >
               Clean Records ({dataset.rowCount - rowsWithIssues.size})
@@ -508,7 +521,7 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
             value={severityFilter}
             onChange={(e) => setSeverityFilter(e.target.value as any)}
             aria-label="Filter by severity"
-            className="bg-slate-950/60 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-indigo-500 cursor-pointer"
+            className="bg-white dark:bg-[#0b0c0e] border border-slate-200 dark:border-[#242630] rounded-xl px-2.5 py-1.5 text-xs text-slate-700 dark:text-zinc-300 focus:outline-none focus:border-red-600 cursor-pointer shadow-2xs"
           >
             <option value="ALL">All Severities</option>
             <option value="CRITICAL">Critical Only</option>
@@ -522,21 +535,21 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
           {/* Dynamic Column Addition Button */}
           <button
             onClick={() => setIsAddColModalOpen(true)}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-200 border border-indigo-500/30 transition cursor-pointer shadow-sm"
+            className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-800 dark:text-white border border-slate-200 dark:border-[#2e303d] hover:border-red-500/50 transition cursor-pointer shadow-2xs"
             title="Introduce new column with custom data type, check constraints, and multi-valued configuration"
           >
-            <Plus className="w-3.5 h-3.5 text-indigo-400" />
+            <Plus className="w-3.5 h-3.5 text-red-600 dark:text-red-500" />
             <span>Add Column</span>
           </button>
 
-          {/* Duplicate Column Resolver Button (appears whenever duplicate/colliding columns exist) */}
+          {/* Duplicate Column Resolver Button */}
           {duplicateColumnPairs.length > 0 && (
             <button
               onClick={() => setIsDuplicateModalOpen(true)}
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 transition shadow-sm cursor-pointer animate-pulse"
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-50 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-500/30 hover:bg-amber-100 dark:hover:bg-amber-500/30 transition shadow-2xs cursor-pointer animate-pulse"
               title="Compare and resolve colliding duplicate columns"
             >
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
               <span>Resolve Duplicates ({duplicateColumnPairs.length})</span>
             </button>
           )}
@@ -544,10 +557,10 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
           {rowsWithIssues.size > 0 && (
             <button
               onClick={() => setIsAutoFixModalOpen(true)}
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-600/30 transition shadow-sm cursor-pointer"
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 dark:bg-emerald-600/20 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-100 dark:hover:bg-emerald-600/30 transition shadow-2xs cursor-pointer"
               title="Inspect backend legitimacy rules, review replacement values, and auto-fix"
             >
-              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+              <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               <span>Review &amp; Auto-Fix</span>
             </button>
           )}
@@ -556,11 +569,11 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
           {onOpenDisambiguatorWithValue && (
             <button
               onClick={() => onOpenDisambiguatorWithValue('120')}
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-950/40 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-900/60 transition shadow-sm cursor-pointer"
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white dark:bg-[#121318] hover:bg-slate-50 dark:hover:bg-[#1a1b22] text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-[#2e303d] hover:border-red-500/50 transition shadow-2xs cursor-pointer"
               title="Analyze how shared values (like 120) are scoped to specific column domains"
             >
-              <Sliders className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Value Disambiguator (e.g. 120)</span>
+              <Sliders className="w-3.5 h-3.5 text-red-600 dark:text-red-500" />
+              <span>Value Disambiguator</span>
             </button>
           )}
 
@@ -569,8 +582,8 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
             onClick={handleDownloadCleanedCsv}
             className={`inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition shadow cursor-pointer ${
               rowsWithIssues.size === 0 || hasAppliedFixes
-                ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30'
-                : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                ? 'bg-[#e31b23] hover:bg-[#c41219] text-white shadow-md shadow-red-950/30 border border-red-500/30'
+                : 'bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 border border-slate-300 dark:border-zinc-700'
             }`}
             title="Download corrected dataset file"
           >
@@ -582,20 +595,20 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
 
       {/* Exceptions & Plain-English Error Explanations Panel */}
       {issues.length > 0 && (
-        <div className="bg-slate-900/90 border border-rose-500/30 rounded-2xl p-5 shadow-sm space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+        <div className="bg-white dark:bg-[#131418] border border-slate-200 dark:border-rose-500/30 rounded-2xl p-5 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
             <div className="flex items-center space-x-3">
-              <div className="p-2 rounded-xl bg-rose-500/20 text-rose-400">
+              <div className="p-2 rounded-xl bg-red-50 text-red-600 border border-red-200 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-500/30">
                 <AlertTriangle className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-white flex items-center space-x-2">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center space-x-2">
                   <span>Exceptions &amp; Plain-English Explanations</span>
-                  <span className="px-2 py-0.5 rounded-full text-xs font-mono bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                  <span className="px-2 py-0.5 rounded-full text-xs font-mono bg-red-50 text-red-700 border border-red-200 dark:bg-rose-500/20 dark:text-rose-300 dark:border-rose-500/30 font-bold">
                     {issues.length} Issues Across {rowsWithIssues.size} Records
                   </span>
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
                   Clear, jargon-free explanations of what went wrong with numbers and values in this dataset, and how to resolve them.
                 </p>
               </div>
@@ -604,15 +617,15 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => setIsAutoFixModalOpen(true)}
-                className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-600/30 transition cursor-pointer"
+                className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-600/20 dark:text-emerald-300 dark:border-emerald-500/30 transition cursor-pointer shadow-2xs"
                 title="Open Auto-Fix Verification modal to inspect backend legitimacy logic"
               >
-                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 <span>Verify &amp; Auto-Fix Values</span>
               </button>
               <button
                 onClick={() => setShowExceptionsPanel(!showExceptionsPanel)}
-                className="text-xs text-slate-400 hover:text-white px-2.5 py-1 rounded-lg bg-slate-800 transition cursor-pointer"
+                className="text-xs text-slate-700 hover:text-slate-900 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:text-white transition cursor-pointer shadow-2xs"
               >
                 {showExceptionsPanel ? 'Collapse List' : 'Expand All Explanations'}
               </button>
@@ -629,24 +642,24 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
                   return (
                     <div
                       key={issue.issueId}
-                      className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 hover:border-slate-700 transition flex flex-col justify-between space-y-3"
+                      className="p-3.5 rounded-xl bg-slate-50/80 dark:bg-[#0e0f13] border border-slate-200 dark:border-[#242630] hover:border-red-400 dark:hover:border-red-600/40 transition flex flex-col justify-between space-y-3 shadow-2xs"
                     >
                       <div>
                         {/* Header with Row, Severity, and Resolution Status */}
                         <div className="flex items-center justify-between">
-                          <span className="font-mono text-xs font-bold text-slate-300">
-                            Row #{issue.rowNumber} • <span className="text-indigo-400">{issue.columnName}</span>
+                          <span className="font-mono text-xs font-bold text-slate-900 dark:text-zinc-300">
+                            Row #{issue.rowNumber} • <span className="text-[#e31b23] dark:text-red-400 font-bold">{issue.columnName}</span>
                           </span>
                           <div className="flex items-center space-x-1.5">
                             {issue.resolutionStatus && issue.resolutionStatus !== 'OPEN' && (
-                              <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                              <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30">
                                 {issue.resolutionStatus}
                               </span>
                             )}
                             <span className={`px-2 py-0.2 rounded text-[10px] font-mono font-bold uppercase ${
                               issue.severity === 'CRITICAL'
-                                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                                : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                ? 'bg-red-50 text-red-700 border border-red-200 dark:bg-red-500/20 dark:text-red-300 dark:border-red-500/30'
+                                : 'bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/30'
                             }`}>
                               {issue.severity}
                             </span>
@@ -654,48 +667,48 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
                         </div>
 
                         {/* Cell Value Found */}
-                        <div className="mt-2 text-xs font-mono flex items-center space-x-1.5 text-slate-400">
+                        <div className="mt-2 text-xs font-mono flex items-center space-x-1.5 text-slate-600 dark:text-zinc-400">
                           <span>Observed Value:</span>
-                          <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30">
+                          <span className="px-2 py-0.5 rounded bg-red-50 text-red-700 border border-red-200 dark:bg-red-500/20 dark:text-red-300 font-bold">
                             {issue.foundValue}
                           </span>
                         </div>
 
                         {/* What's Wrong */}
-                        <div className="mt-2 p-2 rounded-lg bg-rose-950/30 border border-rose-500/30 text-xs">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-rose-400 block">
+                        <div className="mt-2.5 p-2.5 rounded-lg bg-red-50/70 border border-red-200/80 text-slate-900 dark:bg-red-950/30 dark:border-red-500/30 dark:text-white text-xs">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-red-700 dark:text-red-400 block">
                             What is wrong:
                           </span>
-                          <p className="text-white font-medium mt-0.5 text-xs">
+                          <p className="text-slate-800 dark:text-white font-medium mt-0.5 text-xs">
                             {issue.simpleProblem || issue.errorMessage}
                           </p>
                         </div>
 
                         {/* How to Fix */}
-                        <div className="mt-2 p-2 rounded-lg bg-emerald-950/30 border border-emerald-500/30 text-xs">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">
+                        <div className="mt-2 p-2.5 rounded-lg bg-emerald-50/70 border border-emerald-200/80 text-slate-900 dark:bg-emerald-950/30 dark:border-emerald-500/30 dark:text-emerald-200 text-xs">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 block">
                             How to fix:
                           </span>
-                          <p className="text-emerald-200 mt-0.5 text-xs">
+                          <p className="text-emerald-900 dark:text-emerald-200 mt-0.5 text-xs font-medium">
                             {issue.simpleFix || 'Provide a valid entry'}
                           </p>
                         </div>
 
                         {/* Field Plain Meaning */}
-                        <p className="text-[11px] text-slate-400 mt-2">
-                          <span className="text-slate-500 font-semibold">{fieldDef.displayName}:</span> {fieldDef.plainMeaning}
+                        <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-2">
+                          <span className="text-slate-700 dark:text-zinc-500 font-semibold">{fieldDef.displayName}:</span> {fieldDef.plainMeaning}
                         </p>
                       </div>
 
                       {/* Actions */}
-                      <div className="pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                      <div className="pt-2.5 border-t border-slate-200 dark:border-[#242630] flex items-center justify-between text-xs">
                         <button
                           onClick={() => {
                             if (dataset.rawData[rowIdx]) {
                               startEditingRow(rowIdx, dataset.rawData[rowIdx]);
                             }
                           }}
-                          className="inline-flex items-center space-x-1 text-xs text-indigo-400 hover:text-indigo-300 font-medium cursor-pointer"
+                          className="inline-flex items-center space-x-1 text-xs text-[#e31b23] hover:text-[#c41219] font-semibold cursor-pointer"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
                           <span>Edit Row #{issue.rowNumber}</span>
@@ -703,7 +716,7 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
 
                         <button
                           onClick={() => onSelectIssue(issue)}
-                          className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 transition cursor-pointer text-xs font-semibold"
+                          className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 dark:bg-red-600/15 dark:hover:bg-red-600/25 dark:text-red-300 dark:border-red-600/30 transition cursor-pointer text-xs font-semibold"
                           title="Open remediation drawer to inspect record details and record audit log"
                         >
                           <History className="w-3.5 h-3.5" />
@@ -717,25 +730,25 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
 
               {/* Exception Cards Pagination Controls */}
               {totalExceptionPages > 1 && (
-                <div className="flex flex-col sm:flex-row items-center justify-between pt-3 border-t border-slate-800 text-xs gap-2">
-                  <span className="text-slate-400 font-mono text-[11px]">
+                <div className="flex flex-col sm:flex-row items-center justify-between pt-3 border-t border-[#242630] text-xs gap-2">
+                  <span className="text-zinc-400 font-mono text-[11px]">
                     Showing issues {((clampedExceptionPage - 1) * exceptionsPerPage) + 1}–{Math.min(clampedExceptionPage * exceptionsPerPage, issues.length)} of {issues.length} flagged exceptions
                   </span>
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={() => setExceptionsPage(p => Math.max(1, p - 1))}
                       disabled={clampedExceptionPage === 1}
-                      className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 text-xs cursor-pointer disabled:cursor-not-allowed transition"
+                      className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 text-zinc-300 text-xs cursor-pointer disabled:cursor-not-allowed transition"
                     >
                       &larr; Prev 12
                     </button>
-                    <span className="text-slate-400 font-mono text-xs px-2">
+                    <span className="text-zinc-400 font-mono text-xs px-2">
                       Page {clampedExceptionPage} of {totalExceptionPages}
                     </span>
                     <button
                       onClick={() => setExceptionsPage(p => Math.min(totalExceptionPages, p + 1))}
                       disabled={clampedExceptionPage === totalExceptionPages}
-                      className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 text-xs cursor-pointer disabled:cursor-not-allowed transition"
+                      className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 text-zinc-300 text-xs cursor-pointer disabled:cursor-not-allowed transition"
                     >
                       Next 12 &rarr;
                     </button>
@@ -748,12 +761,12 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
       )}
 
       {/* Main Records Table */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+      <div className="bg-white dark:bg-[#131418] border border-slate-200 dark:border-[#242630] rounded-2xl overflow-hidden shadow-sm">
         {/* Table Header Bar & Top Pagination */}
-        <div className="p-3 bg-slate-950/40 border-b border-slate-800/80 flex flex-col md:flex-row md:items-center justify-between text-xs text-slate-400 gap-3">
+        <div className="p-3 bg-slate-50 dark:bg-[#0e0f13] border-b border-slate-200 dark:border-[#242630] flex flex-col md:flex-row md:items-center justify-between text-xs text-slate-600 dark:text-zinc-400 gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold text-slate-200">Dataset Records:</span>
-            <span className="font-mono text-indigo-300">
+            <span className="font-semibold text-slate-900 dark:text-zinc-200">Dataset Records:</span>
+            <span className="font-mono text-[#e31b23] dark:text-red-400 font-bold">
               Showing {startRecordIndex}–{endRecordIndex} of {filteredRows.length.toLocaleString()} rows
             </span>
             {filteredRows.length !== dataset.rowCount && (
@@ -761,21 +774,21 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
                 (Filtered from {dataset.rowCount.toLocaleString()} total)
               </span>
             )}
-            <span className="text-slate-600">•</span>
-            <span className="font-mono text-slate-400">{dataset.columns.length} columns registered</span>
+            <span className="text-slate-400 dark:text-slate-600">•</span>
+            <span className="font-mono text-slate-500 dark:text-slate-400">{dataset.columns.length} columns registered</span>
           </div>
 
           {/* Top Pagination & Page Size Control */}
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center space-x-1.5">
-              <span className="text-[11px] text-slate-500">Rows per page:</span>
+              <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">Rows per page:</span>
               <select
                 value={pageSize}
                 onChange={(e) => {
                   setPageSize(Number(e.target.value));
                   setCurrentPage(1);
                 }}
-                className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-200 font-mono focus:outline-none focus:border-indigo-500 cursor-pointer"
+                className="bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 rounded-lg px-2 py-1 text-xs text-slate-800 dark:text-zinc-200 font-mono focus:outline-none focus:border-red-600 cursor-pointer shadow-2xs"
               >
                 <option value={25}>25</option>
                 <option value={50}>50</option>
@@ -789,37 +802,37 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
               <button
                 onClick={() => setCurrentPage(1)}
                 disabled={clampedCurrentPage <= 1}
-                className="p-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-slate-300 cursor-pointer disabled:cursor-not-allowed transition"
+                className="p-1.5 rounded-lg border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 disabled:opacity-40 disabled:text-slate-400 dark:disabled:text-zinc-600 disabled:bg-slate-100 dark:disabled:bg-zinc-900/40 cursor-pointer disabled:cursor-not-allowed transition shadow-2xs"
                 title="First Page"
               >
-                <ChevronsLeft className="w-3.5 h-3.5" />
+                <ChevronsLeft className="w-3.5 h-3.5 stroke-[2.5]" />
               </button>
               <button
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={clampedCurrentPage <= 1}
-                className="p-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-slate-300 cursor-pointer disabled:cursor-not-allowed transition"
+                className="p-1.5 rounded-lg border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 disabled:opacity-40 disabled:text-slate-400 dark:disabled:text-zinc-600 disabled:bg-slate-100 dark:disabled:bg-zinc-900/40 cursor-pointer disabled:cursor-not-allowed transition shadow-2xs"
                 title="Previous Page"
               >
-                <ChevronLeft className="w-3.5 h-3.5" />
+                <ChevronLeft className="w-3.5 h-3.5 stroke-[2.5]" />
               </button>
-              <span className="px-2 font-mono text-xs text-slate-300">
+              <span className="px-2 font-mono text-xs text-slate-800 dark:text-zinc-200 font-bold">
                 {clampedCurrentPage} / {totalPages}
               </span>
               <button
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={clampedCurrentPage >= totalPages}
-                className="p-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-slate-300 cursor-pointer disabled:cursor-not-allowed transition"
+                className="p-1.5 rounded-lg border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 disabled:opacity-40 disabled:text-slate-400 dark:disabled:text-zinc-600 disabled:bg-slate-100 dark:disabled:bg-zinc-900/40 cursor-pointer disabled:cursor-not-allowed transition shadow-2xs"
                 title="Next Page"
               >
-                <ChevronRight className="w-3.5 h-3.5" />
+                <ChevronRight className="w-3.5 h-3.5 stroke-[2.5]" />
               </button>
               <button
                 onClick={() => setCurrentPage(totalPages)}
                 disabled={clampedCurrentPage >= totalPages}
-                className="p-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-slate-300 cursor-pointer disabled:cursor-not-allowed transition"
+                className="p-1.5 rounded-lg border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 disabled:opacity-40 disabled:text-slate-400 dark:disabled:text-zinc-600 disabled:bg-slate-100 dark:disabled:bg-zinc-900/40 cursor-pointer disabled:cursor-not-allowed transition shadow-2xs"
                 title="Last Page"
               >
-                <ChevronsRight className="w-3.5 h-3.5" />
+                <ChevronsRight className="w-3.5 h-3.5 stroke-[2.5]" />
               </button>
             </div>
           </div>
@@ -827,12 +840,12 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
 
         <div className="overflow-x-auto max-h-[620px] relative">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-[#0b0f17] text-slate-300 font-mono text-[11px] sticky top-0 z-20 shadow-sm border-b border-slate-800">
+            <thead className="bg-slate-50 dark:bg-[#0b0f17] text-slate-700 dark:text-slate-300 font-mono text-[11px] sticky top-0 z-20 shadow-sm border-b border-slate-200 dark:border-slate-800">
               <tr>
-                <th className="py-2.5 px-3 w-14 text-center border-r border-slate-800/60 font-semibold text-slate-500">
+                <th className="py-2.5 px-3 w-14 text-center border-r border-slate-200 dark:border-slate-800/60 font-semibold text-slate-500">
                   #
                 </th>
-                <th className="py-2.5 px-3 w-24 text-center border-r border-slate-800/60 font-semibold">
+                <th className="py-2.5 px-3 w-24 text-center border-r border-slate-200 dark:border-slate-800/60 font-semibold">
                   Status
                 </th>
                 {dataset.columns.map((col) => {
@@ -840,7 +853,7 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
                   const domain = inferColumnSemanticDomain(col);
 
                   return (
-                    <th key={col} className="py-2.5 px-3 border-r border-slate-800/60 font-semibold min-w-[145px] group">
+                    <th key={col} className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-800/60 font-semibold min-w-[145px] group">
                       <div className="flex items-center justify-between">
                         <div className="flex flex-col min-w-0 pr-1">
                           <span className="truncate">{col}</span>
@@ -850,13 +863,13 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
                         </div>
                         <div className="flex items-center space-x-1 shrink-0">
                           {colIssuesCount > 0 && (
-                            <span className="px-1.5 py-0.2 rounded text-[9px] bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                            <span className="px-1.5 py-0.2 rounded text-[9px] bg-red-50 text-red-700 border border-red-200 dark:bg-rose-500/20 dark:text-rose-300 dark:border-rose-500/30 font-bold">
                               {colIssuesCount}
                             </span>
                           )}
                           <button
                             onClick={() => handleDeleteColumn(col)}
-                            className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-500 hover:text-rose-400 transition cursor-pointer"
+                            className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-400 hover:text-red-600 transition cursor-pointer"
                             title={`Drop column '${col}' to simulate schema change`}
                           >
                             <Trash2 className="w-3 h-3" />
@@ -871,7 +884,7 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60 text-slate-300">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-slate-800 dark:text-slate-300">
               {filteredRows.length === 0 ? (
                 <tr>
                   <td colSpan={dataset.columns.length + 3} className="py-12 text-center text-slate-500">
@@ -887,27 +900,27 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
                   return (
                     <tr
                       key={originalIndex}
-                      className={`hover:bg-slate-800/30 transition ${
-                        hasIssues ? 'bg-rose-950/10' : ''
-                      } ${isEditing ? 'bg-indigo-950/30 ring-1 ring-indigo-500' : ''}`}
+                      className={`hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition ${
+                        hasIssues ? 'bg-red-50/40 dark:bg-red-950/15' : ''
+                      } ${isEditing ? 'bg-red-50 dark:bg-red-950/30 ring-1 ring-red-600' : ''}`}
                     >
                       {/* Row index */}
-                      <td className="py-2.5 px-3 text-center font-mono text-[11px] text-slate-500 border-r border-slate-800/60">
+                      <td className="py-2.5 px-3 text-center font-mono text-[11px] text-slate-500 dark:text-zinc-500 border-r border-slate-100 dark:border-[#242630]">
                         {rowNumber}
                       </td>
 
                       {/* Row Status Badge */}
-                      <td className="py-2.5 px-3 text-center border-r border-slate-800/60">
+                      <td className="py-2.5 px-3 text-center border-r border-slate-100 dark:border-[#242630]">
                         {hasIssues ? (
                           <button
                             onClick={() => onSelectIssue(rowIssues[0])}
-                            className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 hover:bg-rose-500/30 cursor-pointer"
+                            className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 dark:bg-red-500/20 dark:text-red-300 dark:border-red-500/40 dark:hover:bg-red-500/30 cursor-pointer"
                           >
-                            <AlertTriangle className="w-3 h-3" />
+                            <AlertTriangle className="w-3 h-3 text-red-600 dark:text-red-400" />
                             <span>{rowIssues.length} issue{rowIssues.length > 1 ? 's' : ''}</span>
                           </button>
                         ) : (
-                          <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
+                          <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/25">
                             <CheckCircle2 className="w-3 h-3" />
                             <span>Valid</span>
                           </span>
@@ -924,9 +937,9 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
                         return (
                           <td
                             key={col}
-                            className={`py-2 px-3 border-r border-slate-800/60 relative group ${
+                            className={`py-2 px-3 border-r border-slate-100 dark:border-[#242630] relative group ${
                               isCellInvalid
-                                ? 'bg-rose-500/15 text-rose-200 font-medium'
+                                ? 'bg-red-50/80 text-red-950 font-medium dark:bg-red-950/30 dark:text-red-200'
                                 : ''
                             }`}
                             onMouseEnter={() => setHoveredCell({ rowIndex: originalIndex, colName: col })}
@@ -938,7 +951,7 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
                               <div className="flex items-center justify-between">
                                 <span className="truncate">
                                   {cellVal === '' ? (
-                                    <span className="text-slate-600 italic font-mono">&lt;EMPTY&gt;</span>
+                                    <span className="text-zinc-600 italic font-mono">&lt;EMPTY&gt;</span>
                                   ) : (
                                     cellVal
                                   )}
@@ -951,7 +964,7 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
                                         e.stopPropagation();
                                         onOpenDisambiguatorWithValue?.(cellVal);
                                       }}
-                                      className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-500 hover:text-indigo-400 cursor-pointer transition"
+                                      className="opacity-0 group-hover:opacity-100 p-0.5 text-zinc-500 hover:text-red-400 cursor-pointer transition"
                                       title={`Test value '${cellVal}' across all column domains`}
                                     >
                                       <Sliders className="w-3 h-3" />
@@ -961,7 +974,7 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
                                     <button
                                       onClick={() => onSelectIssue(cellIssues[0])}
                                       title={cellIssues.map(i => i.errorMessage).join('\n')}
-                                      className="p-0.5 text-rose-400 hover:text-rose-200 cursor-pointer shrink-0"
+                                      className="p-0.5 text-red-400 hover:text-red-200 cursor-pointer shrink-0"
                                     >
                                       <AlertTriangle className="w-3.5 h-3.5" />
                                     </button>
@@ -972,8 +985,8 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
 
                             {/* Floating tooltip on hover if invalid */}
                             {isCellInvalid && hoveredCell?.rowIndex === originalIndex && hoveredCell?.colName === col && !isEditing && (
-                              <div className="absolute left-2 -top-24 z-30 bg-[#0f172a] text-slate-100 p-3 rounded-xl border border-rose-500/50 shadow-2xl text-[11px] pointer-events-none min-w-[260px] max-w-sm">
-                                <div className="font-bold text-rose-400 flex items-center space-x-1.5">
+                              <div className="absolute left-2 -top-24 z-30 bg-[#121318] text-zinc-100 p-3 rounded-xl border border-red-500/50 shadow-2xl text-[11px] pointer-events-none min-w-[260px] max-w-sm">
+                                <div className="font-bold text-red-400 flex items-center space-x-1.5">
                                   <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                                   <span>{cellIssues[0].simpleProblem || cellIssues[0].errorMessage}</span>
                                 </div>
@@ -981,8 +994,8 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
                                   <span className="text-emerald-400 font-bold shrink-0">Fix:</span>
                                   <span>{cellIssues[0].simpleFix || 'Correct cell value'}</span>
                                 </div>
-                                <div className="text-slate-400 text-[10px] mt-1 pt-1 border-t border-slate-800">
-                                  <span className="text-slate-500 font-medium">Field meaning:</span> {getFieldDefinition(col).plainMeaning}
+                                <div className="text-zinc-400 text-[10px] mt-1 pt-1 border-t border-[#242630]">
+                                  <span className="text-zinc-500 font-medium">Field meaning:</span> {getFieldDefinition(col).plainMeaning}
                                 </div>
                               </div>
                             )}
@@ -996,14 +1009,14 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
                           <div className="flex items-center justify-center space-x-1">
                             <button
                               onClick={saveEditedRow}
-                              className="p-1 rounded bg-indigo-600 text-white hover:bg-indigo-500 cursor-pointer"
+                              className="p-1 rounded bg-[#e31b23] text-white hover:bg-[#c41219] cursor-pointer"
                               title="Save Changes"
                             >
                               <Save className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={cancelEditing}
-                              className="p-1 rounded bg-slate-800 text-slate-400 hover:text-white cursor-pointer"
+                              className="p-1 rounded bg-zinc-800 text-zinc-400 hover:text-white cursor-pointer"
                               title="Cancel"
                             >
                               <X className="w-3.5 h-3.5" />
@@ -1012,7 +1025,7 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
                         ) : (
                           <button
                             onClick={() => startEditingRow(originalIndex, row)}
-                            className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                            className="p-1 rounded text-zinc-400 hover:text-white hover:bg-zinc-800 transition cursor-pointer"
                             title="Edit row data in-place to fix corruptions"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
@@ -1028,7 +1041,7 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
         </div>
 
         {/* Bottom Comprehensive Pagination Toolbar */}
-        <div className="p-3 bg-slate-950/60 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-3">
+        <div className="p-3 bg-[#0e0f13] border-t border-[#242630] flex flex-col sm:flex-row items-center justify-between text-xs text-zinc-400 gap-3">
           <div className="flex items-center space-x-2 font-mono text-[11px]">
             <span>
               Showing {startRecordIndex} to {endRecordIndex} of {filteredRows.length.toLocaleString()} rows
@@ -1039,8 +1052,8 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
 
           <div className="flex items-center space-x-2">
             {/* Quick jump to page */}
-            <div className="flex items-center space-x-1 mr-2 text-[11px]">
-              <span className="text-slate-500">Go to page:</span>
+            <div className="flex items-center space-x-1.5 mr-2 text-[11px]">
+              <span className="text-slate-600 dark:text-zinc-400 font-medium">Go to page:</span>
               <input
                 type="number"
                 min={1}
@@ -1052,46 +1065,46 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
                     setCurrentPage(val);
                   }
                 }}
-                className="w-14 bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-center text-slate-200 font-mono text-xs focus:outline-none focus:border-indigo-500"
+                className="w-14 bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 rounded-lg px-2 py-1 text-center text-slate-800 dark:text-zinc-200 font-mono text-xs focus:outline-none focus:border-red-600 shadow-2xs"
               />
             </div>
 
             <button
               onClick={() => setCurrentPage(1)}
               disabled={clampedCurrentPage <= 1}
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-slate-300 cursor-pointer disabled:cursor-not-allowed transition"
+              className="p-1.5 rounded-lg border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 disabled:opacity-40 disabled:text-slate-400 dark:disabled:text-zinc-600 disabled:bg-slate-100 dark:disabled:bg-zinc-900/40 cursor-pointer disabled:cursor-not-allowed transition shadow-2xs"
               title="First Page"
             >
-              <ChevronsLeft className="w-4 h-4" />
+              <ChevronsLeft className="w-4 h-4 stroke-[2.5]" />
             </button>
             <button
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               disabled={clampedCurrentPage <= 1}
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-slate-300 cursor-pointer disabled:cursor-not-allowed transition"
+              className="p-1.5 rounded-lg border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 disabled:opacity-40 disabled:text-slate-400 dark:disabled:text-zinc-600 disabled:bg-slate-100 dark:disabled:bg-zinc-900/40 cursor-pointer disabled:cursor-not-allowed transition shadow-2xs"
               title="Previous Page"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
             </button>
 
-            <span className="px-3 py-1 bg-slate-900 border border-slate-800 rounded-lg font-mono text-xs text-indigo-300 font-bold">
+            <span className="px-3 py-1 bg-red-50 dark:bg-zinc-900 border border-red-200 dark:border-[#242630] rounded-lg font-mono text-xs text-red-700 dark:text-red-400 font-bold shadow-2xs">
               {clampedCurrentPage}
             </span>
 
             <button
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
               disabled={clampedCurrentPage >= totalPages}
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-slate-300 cursor-pointer disabled:cursor-not-allowed transition"
+              className="p-1.5 rounded-lg border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 disabled:opacity-40 disabled:text-slate-400 dark:disabled:text-zinc-600 disabled:bg-slate-100 dark:disabled:bg-zinc-900/40 cursor-pointer disabled:cursor-not-allowed transition shadow-2xs"
               title="Next Page"
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-4 h-4 stroke-[2.5]" />
             </button>
             <button
               onClick={() => setCurrentPage(totalPages)}
               disabled={clampedCurrentPage >= totalPages}
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-slate-300 cursor-pointer disabled:cursor-not-allowed transition"
+              className="p-1.5 rounded-lg border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 disabled:opacity-40 disabled:text-slate-400 dark:disabled:text-zinc-600 disabled:bg-slate-100 dark:disabled:bg-zinc-900/40 cursor-pointer disabled:cursor-not-allowed transition shadow-2xs"
               title="Last Page"
             >
-              <ChevronsRight className="w-4 h-4" />
+              <ChevronsRight className="w-4 h-4 stroke-[2.5]" />
             </button>
           </div>
         </div>

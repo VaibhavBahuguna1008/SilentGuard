@@ -155,29 +155,29 @@ export const DuplicateColumnResolverModal: React.FC<DuplicateColumnResolverModal
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-hidden">
-      <div className="bg-[#0f172a] border border-slate-800 rounded-2xl max-w-3xl w-full max-h-[92vh] flex flex-col shadow-2xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-hidden">
+      <div className="bg-white dark:bg-[#131418] border border-slate-200 dark:border-[#242630] rounded-2xl max-w-3xl w-full max-h-[92vh] flex flex-col shadow-2xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Sticky Header */}
-        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-800 bg-[#0f172a] shrink-0 z-20">
+        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-200 dark:border-[#242630] bg-white dark:bg-[#131418] shrink-0 z-20">
           <div className="flex items-center space-x-3">
-            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400">
+            <div className="p-2 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/20 dark:text-amber-400 dark:border-transparent">
               <Columns className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white flex items-center space-x-2">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center space-x-2">
                 <span>Duplicate &amp; Colliding Columns Resolver</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-mono">
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:border-transparent font-mono font-bold">
                   Schema Integrity
                 </span>
               </h3>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-600 dark:text-slate-400">
                 Compare two identical or duplicate columns side-by-side, inspect value discrepancies, and choose a resolution strategy.
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800 transition cursor-pointer"
             title="Close / Cancel (Esc)"
           >
             <X className="w-5 h-5" />
@@ -203,7 +203,7 @@ export const DuplicateColumnResolverModal: React.FC<DuplicateColumnResolverModal
                     setColB(columns[1]);
                     setRenameValue(`${columns[1]}_distinct`);
                   }}
-                  className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-slate-700 text-[11px] font-mono cursor-pointer transition"
+                  className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-red-400 border border-zinc-700 text-[11px] font-mono cursor-pointer transition"
                 >
                   {columns.join(' ↔ ')}
                 </button>
@@ -214,14 +214,14 @@ export const DuplicateColumnResolverModal: React.FC<DuplicateColumnResolverModal
 
         {/* Column Selectors */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-          <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800">
-            <label className="block text-xs font-bold text-indigo-300 mb-1">
+          <div className="bg-[#0e0f13] p-3.5 rounded-xl border border-[#242630]">
+            <label className="block text-xs font-bold text-red-400 mb-1">
               Primary Column (Column A)
             </label>
             <select
               value={colA}
               onChange={(e) => setColA(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-white font-mono text-xs cursor-pointer focus:outline-none focus:border-indigo-500"
+              className="w-full bg-[#0b0c0e] border border-zinc-700 rounded-lg px-3 py-1.5 text-white font-mono text-xs cursor-pointer focus:outline-none focus:border-red-600"
             >
               {dataset.columns.map(c => (
                 <option key={c} value={c} disabled={c === colB}>
@@ -231,7 +231,7 @@ export const DuplicateColumnResolverModal: React.FC<DuplicateColumnResolverModal
             </select>
           </div>
 
-          <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800">
+          <div className="bg-[#0e0f13] p-3.5 rounded-xl border border-[#242630]">
             <label className="block text-xs font-bold text-amber-300 mb-1">
               Secondary / Colliding Column (Column B)
             </label>
@@ -241,7 +241,7 @@ export const DuplicateColumnResolverModal: React.FC<DuplicateColumnResolverModal
                 setColB(e.target.value);
                 setRenameValue(`${e.target.value}_distinct`);
               }}
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-white font-mono text-xs cursor-pointer focus:outline-none focus:border-amber-500"
+              className="w-full bg-[#0b0c0e] border border-zinc-700 rounded-lg px-3 py-1.5 text-white font-mono text-xs cursor-pointer focus:outline-none focus:border-amber-500"
             >
               {dataset.columns.map(c => (
                 <option key={c} value={c} disabled={c === colA}>
@@ -254,55 +254,55 @@ export const DuplicateColumnResolverModal: React.FC<DuplicateColumnResolverModal
 
         {/* Statistics & Comparison Bar */}
         {stats && (
-          <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 mb-5 space-y-3">
-            <div className="flex items-center justify-between text-xs border-b border-slate-800/80 pb-2">
-              <span className="font-semibold text-slate-300">Comparison Metrics across {stats.totalRows} Records:</span>
-              <span className="text-[11px] text-slate-400 font-mono">
+          <div className="bg-[#0e0f13] border border-[#242630] rounded-xl p-4 mb-5 space-y-3">
+            <div className="flex items-center justify-between text-xs border-b border-[#242630] pb-2">
+              <span className="font-semibold text-zinc-300">Comparison Metrics across {stats.totalRows} Records:</span>
+              <span className="text-[11px] text-zinc-400 font-mono">
                 {colA} vs {colB}
               </span>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-              <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
-                <span className="text-[10px] text-slate-400 block">Exact Matches</span>
+              <div className="bg-[#0b0c0e] p-2 rounded-lg border border-[#242630]">
+                <span className="text-[10px] text-zinc-400 block">Exact Matches</span>
                 <span className="text-sm font-bold text-emerald-400 font-mono">{stats.exactMatches}</span>
               </div>
-              <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
-                <span className="text-[10px] text-slate-400 block">Conflicting Values</span>
+              <div className="bg-[#0b0c0e] p-2 rounded-lg border border-[#242630]">
+                <span className="text-[10px] text-zinc-400 block">Conflicting Values</span>
                 <span className="text-sm font-bold text-rose-400 font-mono">{stats.conflicting}</span>
               </div>
-              <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
-                <span className="text-[10px] text-slate-400 block">Col A Empty, Col B Has</span>
-                <span className="text-sm font-bold text-indigo-400 font-mono">{stats.aEmptyBHas}</span>
+              <div className="bg-[#0b0c0e] p-2 rounded-lg border border-[#242630]">
+                <span className="text-[10px] text-zinc-400 block">Col A Empty, Col B Has</span>
+                <span className="text-sm font-bold text-red-400 font-mono">{stats.aEmptyBHas}</span>
               </div>
-              <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
-                <span className="text-[10px] text-slate-400 block">Col B Empty, Col A Has</span>
+              <div className="bg-[#0b0c0e] p-2 rounded-lg border border-[#242630]">
+                <span className="text-[10px] text-zinc-400 block">Col B Empty, Col A Has</span>
                 <span className="text-sm font-bold text-amber-400 font-mono">{stats.bEmptyAHas}</span>
               </div>
             </div>
 
             {/* Sample Table Preview */}
-            <div className="overflow-x-auto max-h-36 border border-slate-800 rounded-lg text-[11px]">
+            <div className="overflow-x-auto max-h-36 border border-[#242630] rounded-lg text-[11px]">
               <table className="w-full text-left font-mono">
-                <thead className="bg-slate-900 text-slate-400 text-[10px]">
+                <thead className="bg-[#0b0c0e] text-zinc-400 text-[10px]">
                   <tr>
                     <th className="py-1 px-2.5">Row</th>
-                    <th className="py-1 px-2.5 text-indigo-300">{colA}</th>
+                    <th className="py-1 px-2.5 text-red-400">{colA}</th>
                     <th className="py-1 px-2.5 text-amber-300">{colB}</th>
-                    <th className="py-1 px-2.5 text-slate-400">Match Status</th>
+                    <th className="py-1 px-2.5 text-zinc-400">Match Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800 text-slate-200">
+                <tbody className="divide-y divide-[#242630] text-zinc-200">
                   {dataset.rawData.slice(0, 5).map((row, idx) => {
                     const vA = (row[colA] || '').trim();
                     const vB = (row[colB] || '').trim();
                     const isSame = vA === vB && vA !== '';
                     const isConflict = vA !== '' && vB !== '' && vA !== vB;
                     return (
-                      <tr key={idx} className="hover:bg-slate-900/40">
-                        <td className="py-1 px-2.5 text-slate-500">#{idx + 1}</td>
-                        <td className="py-1 px-2.5 truncate max-w-[140px]">{vA || <span className="text-slate-600">&lt;empty&gt;</span>}</td>
-                        <td className="py-1 px-2.5 truncate max-w-[140px]">{vB || <span className="text-slate-600">&lt;empty&gt;</span>}</td>
+                      <tr key={idx} className="hover:bg-zinc-800/40">
+                        <td className="py-1 px-2.5 text-zinc-500">#{idx + 1}</td>
+                        <td className="py-1 px-2.5 truncate max-w-[140px]">{vA || <span className="text-zinc-600">&lt;empty&gt;</span>}</td>
+                        <td className="py-1 px-2.5 truncate max-w-[140px]">{vB || <span className="text-zinc-600">&lt;empty&gt;</span>}</td>
                         <td className="py-1 px-2.5">
                           {isSame && <span className="text-emerald-400 text-[10px]">Identical</span>}
                           {isConflict && <span className="text-rose-400 text-[10px]">Conflict</span>}
@@ -319,7 +319,7 @@ export const DuplicateColumnResolverModal: React.FC<DuplicateColumnResolverModal
 
         {/* Resolution Options */}
         <div className="space-y-2.5 mb-6 text-xs">
-          <label className="block text-slate-300 font-bold">
+          <label className="block text-zinc-300 font-bold">
             Select Resolution Action:
           </label>
 
@@ -331,15 +331,15 @@ export const DuplicateColumnResolverModal: React.FC<DuplicateColumnResolverModal
               className={`p-3 rounded-xl border text-left transition cursor-pointer ${
                 resolutionMode === 'MERGE_COALESCE'
                   ? 'bg-emerald-600/20 border-emerald-500 text-white shadow-sm'
-                  : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:border-slate-700'
+                  : 'bg-[#0b0c0e] border-[#242630] text-zinc-300 hover:border-zinc-700'
               }`}
             >
               <div className="flex items-center space-x-1.5 font-bold text-emerald-400 mb-1">
                 <GitMerge className="w-4 h-4" />
                 <span>Merge (COALESCE)</span>
               </div>
-              <p className="text-[11px] text-slate-300">
-                Keep <span className="font-mono text-indigo-300">{colA}</span> as primary, backfill empty cells from <span className="font-mono text-amber-300">{colB}</span>, then discard {colB}.
+              <p className="text-[11px] text-zinc-300">
+                Keep <span className="font-mono text-red-400">{colA}</span> as primary, backfill empty cells from <span className="font-mono text-amber-300">{colB}</span>, then discard {colB}.
               </p>
             </button>
 
@@ -349,15 +349,15 @@ export const DuplicateColumnResolverModal: React.FC<DuplicateColumnResolverModal
               onClick={() => setResolutionMode('RENAME_B')}
               className={`p-3 rounded-xl border text-left transition cursor-pointer ${
                 resolutionMode === 'RENAME_B'
-                  ? 'bg-indigo-600/20 border-indigo-500 text-white shadow-sm'
-                  : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:border-slate-700'
+                  ? 'bg-red-600/20 border-red-500 text-white shadow-sm'
+                  : 'bg-[#0b0c0e] border-[#242630] text-zinc-300 hover:border-zinc-700'
               }`}
             >
-              <div className="flex items-center space-x-1.5 font-bold text-indigo-400 mb-1">
+              <div className="flex items-center space-x-1.5 font-bold text-red-400 mb-1">
                 <Copy className="w-4 h-4" />
                 <span>Rename {colB} (Disambiguate)</span>
               </div>
-              <p className="text-[11px] text-slate-300">
+              <p className="text-[11px] text-zinc-300">
                 Retain both columns by giving {colB} a distinct unique name.
               </p>
             </button>
@@ -368,15 +368,15 @@ export const DuplicateColumnResolverModal: React.FC<DuplicateColumnResolverModal
               onClick={() => setResolutionMode('KEEP_A')}
               className={`p-3 rounded-xl border text-left transition cursor-pointer ${
                 resolutionMode === 'KEEP_A'
-                  ? 'bg-indigo-600/20 border-indigo-500 text-white shadow-sm'
-                  : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:border-slate-700'
+                  ? 'bg-red-600/20 border-red-500 text-white shadow-sm'
+                  : 'bg-[#0b0c0e] border-[#242630] text-zinc-300 hover:border-zinc-700'
               }`}
             >
-              <div className="flex items-center space-x-1.5 font-bold text-slate-200 mb-1">
-                <ShieldCheck className="w-4 h-4 text-indigo-400" />
+              <div className="flex items-center space-x-1.5 font-bold text-zinc-200 mb-1">
+                <ShieldCheck className="w-4 h-4 text-red-500" />
                 <span>Keep {colA}, Drop {colB}</span>
               </div>
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] text-zinc-400">
                 Discard {colB} completely and keep {colA} as the authoritative source.
               </p>
             </button>
@@ -387,15 +387,15 @@ export const DuplicateColumnResolverModal: React.FC<DuplicateColumnResolverModal
               onClick={() => setResolutionMode('KEEP_B')}
               className={`p-3 rounded-xl border text-left transition cursor-pointer ${
                 resolutionMode === 'KEEP_B'
-                  ? 'bg-indigo-600/20 border-indigo-500 text-white shadow-sm'
-                  : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:border-slate-700'
+                  ? 'bg-red-600/20 border-red-500 text-white shadow-sm'
+                  : 'bg-[#0b0c0e] border-[#242630] text-zinc-300 hover:border-zinc-700'
               }`}
             >
-              <div className="flex items-center space-x-1.5 font-bold text-slate-200 mb-1">
+              <div className="flex items-center space-x-1.5 font-bold text-zinc-200 mb-1">
                 <ShieldCheck className="w-4 h-4 text-amber-400" />
                 <span>Keep {colB}, Drop {colA}</span>
               </div>
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] text-zinc-400">
                 Discard {colA} completely and keep {colB} as the authoritative source.
               </p>
             </button>
@@ -403,14 +403,14 @@ export const DuplicateColumnResolverModal: React.FC<DuplicateColumnResolverModal
 
           {resolutionMode === 'RENAME_B' && (
             <div className="pt-2">
-              <label className="block text-[11px] text-slate-400 mb-1">
+              <label className="block text-[11px] text-zinc-400 mb-1">
                 New Name for {colB}:
               </label>
               <input
                 type="text"
                 value={renameValue}
                 onChange={(e) => setRenameValue(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white font-mono text-xs focus:outline-none focus:border-indigo-500"
+                className="w-full bg-[#0b0c0e] border border-zinc-700 rounded-lg px-3 py-1.5 text-white font-mono text-xs focus:outline-none focus:border-red-600"
               />
             </div>
           )}
@@ -418,15 +418,15 @@ export const DuplicateColumnResolverModal: React.FC<DuplicateColumnResolverModal
       </div>
 
       {/* Sticky Actions Footer */}
-        <div className="flex items-center justify-between p-3.5 sm:px-6 border-t border-slate-800 bg-[#0b1120] shrink-0 z-20">
-          <span className="text-[10px] text-slate-400 hidden sm:inline">
-            Press <kbd className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 font-mono text-slate-300">Esc</kbd> to cancel
+        <div className="flex items-center justify-between p-3.5 sm:px-6 border-t border-[#242630] bg-[#0e0f13] shrink-0 z-20">
+          <span className="text-[10px] text-zinc-400 hidden sm:inline">
+            Press <kbd className="px-1.5 py-0.5 rounded bg-[#14151a] border border-[#242630] font-mono text-zinc-300">Esc</kbd> to cancel
           </span>
           <div className="flex items-center space-x-2.5 ml-auto">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer text-xs"
+              className="px-4 py-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition cursor-pointer text-xs"
             >
               Cancel
             </button>
@@ -434,7 +434,7 @@ export const DuplicateColumnResolverModal: React.FC<DuplicateColumnResolverModal
               type="button"
               onClick={handleApplyResolution}
               disabled={!colA || !colB || colA === colB}
-              className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold shadow-md shadow-indigo-600/30 transition flex items-center space-x-1.5 cursor-pointer text-xs"
+              className="px-5 py-2 rounded-xl bg-[#e31b23] hover:bg-[#c41219] disabled:opacity-50 text-white font-semibold shadow-md shadow-red-950/40 transition flex items-center space-x-1.5 cursor-pointer text-xs border border-red-500/30"
             >
               <GitMerge className="w-4 h-4" />
               <span>Apply Column Resolution</span>

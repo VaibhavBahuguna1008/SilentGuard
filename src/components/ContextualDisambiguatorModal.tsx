@@ -51,36 +51,36 @@ export const ContextualDisambiguatorModal: React.FC<ContextualDisambiguatorModal
 
   const getDomainIcon = (domainType: string) => {
     switch (domainType) {
-      case 'DEPARTMENT_CODE': return <Building2 className="w-4 h-4 text-indigo-400" />;
+      case 'DEPARTMENT_CODE': return <Building2 className="w-4 h-4 text-red-500" />;
       case 'MONETARY_AMOUNT': return <DollarSign className="w-4 h-4 text-emerald-400" />;
-      case 'PERSONNEL_ID': return <User className="w-4 h-4 text-blue-400" />;
-      case 'EMAIL_RFC': return <Mail className="w-4 h-4 text-cyan-400" />;
+      case 'PERSONNEL_ID': return <User className="w-4 h-4 text-red-400" />;
+      case 'EMAIL_RFC': return <Mail className="w-4 h-4 text-zinc-300" />;
       case 'PHYSICAL_QUANTITY': return <Package className="w-4 h-4 text-amber-400" />;
-      case 'DATE_CHRONO': return <Calendar className="w-4 h-4 text-purple-400" />;
-      default: return <Database className="w-4 h-4 text-slate-400" />;
+      case 'DATE_CHRONO': return <Calendar className="w-4 h-4 text-zinc-300" />;
+      default: return <Database className="w-4 h-4 text-zinc-400" />;
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="bg-[#0f172a] border border-slate-800 rounded-3xl max-w-4xl w-full p-6 shadow-2xl relative max-h-[90vh] flex flex-col justify-between overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-black/60 dark:bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-[#131418] border border-slate-200 dark:border-[#242630] rounded-3xl max-w-4xl w-full p-6 shadow-2xl relative max-h-[90vh] flex flex-col justify-between overflow-hidden">
         {/* Header */}
         <div>
-          <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+          <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-[#242630]">
             <div className="flex items-center space-x-3">
-              <div className="p-2.5 rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-500 text-white shadow-lg shadow-indigo-600/30">
+              <div className="p-2.5 rounded-xl bg-[#e31b23] text-white shadow-md shadow-red-950/40 border border-red-500/30">
                 <Sliders className="w-5 h-5" />
               </div>
               <div>
                 <div className="flex items-center space-x-2">
-                  <h3 className="text-base font-bold text-white">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
                     Contextual Value Disambiguator &amp; Domain Scoper
                   </h3>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-red-50 text-red-700 border border-red-200 dark:bg-red-500/20 dark:text-red-300 dark:border-red-500/30">
                     Semantic Column Resolver
                   </span>
                 </div>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-xs text-slate-600 dark:text-zinc-400 mt-0.5">
                   How SilentGuard recognizes what a shared value (like &lsquo;120&rsquo;) means across different columns.
                 </p>
               </div>
@@ -88,22 +88,22 @@ export const ContextualDisambiguatorModal: React.FC<ContextualDisambiguatorModal
 
             <button
               onClick={onClose}
-              className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+              className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:text-zinc-400 dark:hover:text-white dark:hover:bg-zinc-800 transition cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
           {/* Core Concept Banner */}
-          <div className="my-4 p-4 rounded-2xl bg-indigo-950/30 border border-indigo-500/30 text-xs">
+          <div className="my-4 p-4 rounded-2xl bg-red-50/60 dark:bg-[#0e0f13] border border-red-200 dark:border-red-500/30 text-xs">
             <div className="flex items-start space-x-3">
-              <Sparkles className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+              <Sparkles className="w-4 h-4 text-red-600 dark:text-red-500 shrink-0 mt-0.5" />
               <div className="space-y-1">
-                <span className="font-bold text-white">
+                <span className="font-bold text-slate-900 dark:text-white">
                   Why does a value like &lsquo;120&rsquo; behave differently in different fields?
                 </span>
-                <p className="text-slate-300 leading-relaxed text-[11px]">
-                  Raw primitive values have <strong>no universal meaning</strong>. The value <code className="text-indigo-300 font-mono font-bold">120</code> in <code className="text-indigo-300 font-mono font-bold">department_id</code> maps to <em>Customer Success</em>, whereas in <code className="text-indigo-300 font-mono font-bold">salary</code> it indicates a sub-minimum wage error, and in <code className="text-indigo-300 font-mono font-bold">status</code> it is illegal. SilentGuard enforces <strong>Column-Scoped Semantic Domains</strong> so rules never bleed into unrelated fields.
+                <p className="text-slate-700 dark:text-zinc-300 leading-relaxed text-[11px]">
+                  Raw primitive values have <strong>no universal meaning</strong>. The value <code className="text-red-600 dark:text-red-400 font-mono font-bold">120</code> in <code className="text-red-600 dark:text-red-400 font-mono font-bold">department_id</code> maps to <em>Customer Success</em>, whereas in <code className="text-red-600 dark:text-red-400 font-mono font-bold">salary</code> it indicates a sub-minimum wage error, and in <code className="text-red-600 dark:text-red-400 font-mono font-bold">status</code> it is illegal. SilentGuard enforces <strong>Column-Scoped Semantic Domains</strong> so rules never bleed into unrelated fields.
                 </p>
               </div>
             </div>
@@ -112,28 +112,28 @@ export const ContextualDisambiguatorModal: React.FC<ContextualDisambiguatorModal
           {/* Interactive Value Tester & Presets */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div className="flex items-center space-x-2 flex-1">
-              <span className="text-xs text-slate-400 font-medium whitespace-nowrap">Test Value:</span>
+              <span className="text-xs text-zinc-400 font-medium whitespace-nowrap">Test Value:</span>
               <div className="relative flex-1 max-w-xs">
                 <input
                   type="text"
                   value={testValue}
                   onChange={(e) => setTestValue(e.target.value)}
                   placeholder="Enter a value to test (e.g. 120)..."
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-[#0b0c0e] border border-[#242630] rounded-xl px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-red-600"
                 />
               </div>
             </div>
 
             <div className="flex items-center space-x-1.5 overflow-x-auto text-xs">
-              <span className="text-slate-500 text-[11px]">Quick samples:</span>
+              <span className="text-zinc-500 text-[11px]">Quick samples:</span>
               {sampleValues.map((v) => (
                 <button
                   key={v}
                   onClick={() => setTestValue(v)}
                   className={`px-2.5 py-1 rounded-lg font-mono text-[11px] transition cursor-pointer ${
                     testValue === v
-                      ? 'bg-indigo-600 text-white font-bold'
-                      : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800'
+                      ? 'bg-[#e31b23] text-white font-bold shadow-sm shadow-red-950/40'
+                      : 'bg-[#0b0c0e] text-zinc-300 hover:bg-zinc-800 border border-[#242630]'
                   }`}
                 >
                   {v}
@@ -151,23 +151,23 @@ export const ContextualDisambiguatorModal: React.FC<ContextualDisambiguatorModal
                 key={ev.columnName}
                 className={`p-4 rounded-2xl border transition flex flex-col justify-between ${
                   ev.verdict === 'VALID'
-                    ? 'bg-slate-900/90 border-emerald-500/30'
+                    ? 'bg-[#0e0f13] border-emerald-500/30'
                     : ev.verdict === 'INVALID'
-                    ? 'bg-slate-900/90 border-rose-500/40'
-                    : 'bg-slate-900/90 border-amber-500/40'
+                    ? 'bg-[#0e0f13] border-red-500/40'
+                    : 'bg-[#0e0f13] border-amber-500/40'
                 }`}
               >
                 <div>
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="flex items-center space-x-2">
-                      <div className="p-1.5 rounded-lg bg-slate-950 border border-slate-800">
+                      <div className="p-1.5 rounded-lg bg-[#0b0c0e] border border-[#242630]">
                         {getDomainIcon(ev.domainType)}
                       </div>
                       <div>
                         <span className="text-xs font-bold text-white block">
-                          Column: <span className="text-indigo-400 font-mono">{ev.columnName}</span>
+                          Column: <span className="text-red-400 font-mono">{ev.columnName}</span>
                         </span>
-                        <span className="text-[10px] text-slate-400 font-mono block">
+                        <span className="text-[10px] text-zinc-400 font-mono block">
                           Domain: {ev.domainLabel}
                         </span>
                       </div>
@@ -177,7 +177,7 @@ export const ContextualDisambiguatorModal: React.FC<ContextualDisambiguatorModal
                       ev.verdict === 'VALID'
                         ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                         : ev.verdict === 'INVALID'
-                        ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                        ? 'bg-red-500/20 text-red-300 border border-red-500/30'
                         : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                     }`}>
                       {ev.verdict} in this field
@@ -186,10 +186,10 @@ export const ContextualDisambiguatorModal: React.FC<ContextualDisambiguatorModal
 
                   {/* Contextual Meaning */}
                   {ev.semanticMeaning && (
-                    <div className="bg-slate-950/70 p-2.5 rounded-xl border border-slate-800/80 my-2 text-xs font-mono">
-                      <span className="text-slate-500 text-[10px] block">INTERPRETED SEMANTIC MEANING:</span>
+                    <div className="bg-[#0b0c0e] p-2.5 rounded-xl border border-[#242630] my-2 text-xs font-mono">
+                      <span className="text-zinc-500 text-[10px] block">INTERPRETED SEMANTIC MEANING:</span>
                       <span className={`font-semibold ${
-                        ev.verdict === 'VALID' ? 'text-emerald-300' : 'text-slate-200'
+                        ev.verdict === 'VALID' ? 'text-emerald-300' : 'text-zinc-200'
                       }`}>
                         {ev.semanticMeaning}
                       </span>
@@ -197,16 +197,16 @@ export const ContextualDisambiguatorModal: React.FC<ContextualDisambiguatorModal
                   )}
 
                   {/* Reasoning */}
-                  <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+                  <p className="text-xs text-zinc-300 mt-2 leading-relaxed">
                     {ev.reasoning}
                   </p>
                 </div>
 
                 {/* Scope & Governing Rule */}
-                <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] font-mono text-slate-400">
+                <div className="mt-3 pt-2.5 border-t border-[#242630] flex items-center justify-between text-[11px] font-mono text-zinc-400">
                   <span>Scope: {ev.scopeNamespace}</span>
                   {ev.activeRuleName && (
-                    <span className="text-indigo-300 truncate max-w-[150px]" title={ev.activeRuleName}>
+                    <span className="text-red-400 truncate max-w-[150px]" title={ev.activeRuleName}>
                       [{ev.activeRuleName}]
                     </span>
                   )}
@@ -217,9 +217,9 @@ export const ContextualDisambiguatorModal: React.FC<ContextualDisambiguatorModal
         </div>
 
         {/* Footer */}
-        <div className="pt-4 mt-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+        <div className="pt-4 mt-3 border-t border-[#242630] flex items-center justify-between text-xs text-zinc-400">
           <div className="flex items-center space-x-2">
-            <ShieldCheck className="w-4 h-4 text-indigo-400" />
+            <ShieldCheck className="w-4 h-4 text-red-500" />
             <span>
               Values are strictly isolated to their column schema contract. No cross-field contamination.
             </span>
@@ -227,7 +227,7 @@ export const ContextualDisambiguatorModal: React.FC<ContextualDisambiguatorModal
 
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium cursor-pointer"
+            className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-medium cursor-pointer"
           >
             Done
           </button>

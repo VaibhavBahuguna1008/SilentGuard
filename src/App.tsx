@@ -28,6 +28,7 @@ import {
 import { createDatasetFromCsv } from './utils/csvParser';
 import { runValidation as clientRunValidation } from './services/validationEngine';
 import { api, BackendHealth } from './services/api';
+import mothersonLogo from './assets/motherson-logo.png';
 
 // Baseline demo datasets always available as options
 const SEED_DATASETS: Dataset[] = [
@@ -57,6 +58,31 @@ const SEED_DATASETS: Dataset[] = [
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [backendHealth, setBackendHealth] = useState<BackendHealth | null>(null);
+
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    try {
+      const saved = localStorage.getItem('silentguard_theme');
+      if (saved === 'light' || saved === 'dark') return saved;
+    } catch {}
+    return 'dark';
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('silentguard_theme', theme);
+    } catch {}
+    if (theme === 'light') {
+      document.documentElement.classList.add('light');
+      document.documentElement.classList.remove('dark');
+    } else {
+      document.documentElement.classList.remove('light');
+      document.documentElement.classList.add('dark');
+    }
+  }, [theme]);
+
+  const handleToggleTheme = useCallback(() => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  }, []);
 
   const [datasets, setDatasets] = useState<Dataset[]>(() => {
     return [...SEED_DATASETS];
@@ -194,7 +220,12 @@ export default function App() {
             const latestForActive = dbRuns.find(r => r.datasetId === selected?.datasetId);
             if (latestForActive) {
               const issues = await api.fetchRunIssues(latestForActive.runId);
-              setCurrentIssues(issues);
+              const cleanIssues = selected ? issues.filter(i => 
+                selected.columns.includes(i.columnName) && 
+                i.foundValue !== '<MISSING HEADER>' && 
+                i.foundValue !== '<MISSING SECOND COLUMN>'
+              ) : issues;
+              setCurrentIssues(cleanIssues.length > 0 ? cleanIssues : issues);
             } else if (selected) {
               handleExecuteValidation(selected, effectiveRules);
             }
@@ -232,15 +263,27 @@ export default function App() {
         targetDataset.fileName
       );
 
+      // Cleanse result issues to guarantee accurate column domain isolation
+      const cleanIssues = result.issues.filter(i => 
+        targetDataset.columns.includes(i.columnName) &&
+        i.foundValue !== '<MISSING HEADER>' &&
+        i.foundValue !== '<MISSING SECOND COLUMN>'
+      );
+
       setRuns(prev => [result.run, ...prev]);
-      setCurrentIssues(result.issues);
+      setCurrentIssues(cleanIssues.length > 0 ? cleanIssues : result.issues);
     } catch (err) {
       console.warn('Falling back to client validation engine:', err);
       // Resilient fallback to client-side engine if backend call fails
       const nextRunNumber = runs.filter(r => r.datasetId === targetDataset.datasetId).length + 1;
       const { run, issues } = clientRunValidation(targetDataset, targetRules, nextRunNumber);
+      const cleanIssues = issues.filter(i => 
+        targetDataset.columns.includes(i.columnName) &&
+        i.foundValue !== '<MISSING HEADER>' &&
+        i.foundValue !== '<MISSING SECOND COLUMN>'
+      );
       setRuns(prev => [run, ...prev]);
-      setCurrentIssues(issues);
+      setCurrentIssues(cleanIssues.length > 0 ? cleanIssues : issues);
     } finally {
       setIsValidating(false);
     }
@@ -280,7 +323,12 @@ export default function App() {
     if (existingRun) {
       try {
         const issues = await api.fetchRunIssues(existingRun.runId);
-        setCurrentIssues(issues);
+        const cleanIssues = issues.filter(i => 
+          chosen.columns.includes(i.columnName) && 
+          i.foundValue !== '<MISSING HEADER>' && 
+          i.foundValue !== '<MISSING SECOND COLUMN>'
+        );
+        setCurrentIssues(cleanIssues.length > 0 ? cleanIssues : issues);
       } catch (e) {
         console.warn('Could not fetch issues for existing run:', e);
       }
@@ -505,7 +553,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0b0f17] text-slate-100 flex flex-col selection:bg-indigo-500/30">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0b0c0e] text-slate-900 dark:text-zinc-100 flex flex-col selection:bg-red-600 selection:text-white">
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -522,6 +570,8 @@ export default function App() {
         onSelectDataset={handleSelectDataset}
         allDatasets={datasets}
         backendHealth={backendHealth}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -606,15 +656,21 @@ export default function App() {
         initialValue={disambiguatorValue}
       />
 
-      <footer className="border-t border-slate-800/80 bg-[#0f172a]/60 py-4 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2 font-mono">
-          <div className="flex items-center space-x-2">
-            <span className="font-bold text-slate-400">SilentGuard</span>
-            <span>•</span>
-            <span>Data Quality &amp; Silent Failure Detection Engine</span>
+      <footer className="border-t border-slate-200 dark:border-[#232530] bg-white dark:bg-[#0e0f13] py-4 mt-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 dark:text-zinc-400 gap-3">
+          <div className="flex items-center space-x-2.5">
+            <img
+              src={mothersonLogo}
+              alt="Motherson"
+              className="h-4 w-auto object-contain select-none"
+            />
+            <span className="text-slate-300 dark:text-zinc-600">|</span>
+            <span className="font-semibold text-slate-800 dark:text-zinc-200">SilentGuard</span>
+            <span className="text-slate-300 dark:text-zinc-600 hidden md:inline">•</span>
+            <span className="text-slate-500 dark:text-zinc-400 hidden md:inline">Automotive &amp; Industrial Quality Gateway</span>
           </div>
-          <div>
-            Built with React, Spring Boot &amp; PostgreSQL 16
+          <div className="text-slate-500 dark:text-zinc-500 text-[11px] font-mono">
+            Motherson Enterprise Architecture • React, Spring Boot &amp; PostgreSQL 16
           </div>
         </div>
       </footer>
