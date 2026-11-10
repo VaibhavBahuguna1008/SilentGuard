@@ -12,7 +12,11 @@ import {
   Zap,
   Filter,
   Layers,
-  Calendar
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react';
 import { ValidationRun } from '../types';
 
@@ -91,6 +95,26 @@ export const RunHistoryView: React.FC<RunHistoryViewProps> = ({
       return iso;
     }
   };
+
+  // Pagination & Batching state for Execution Timeline
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+
+  // Reset to page 1 whenever dataset scope changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedDatasetId]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRuns.length / pageSize));
+  const clampedCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+  const paginatedRuns = useMemo(() => {
+    const start = (clampedCurrentPage - 1) * pageSize;
+    return filteredRuns.slice(start, start + pageSize);
+  }, [filteredRuns, clampedCurrentPage, pageSize]);
+
+  const startRunIndex = filteredRuns.length === 0 ? 0 : (clampedCurrentPage - 1) * pageSize + 1;
+  const endRunIndex = Math.min(clampedCurrentPage * pageSize, filteredRuns.length);
 
   return (
     <div className="space-y-6">
@@ -244,14 +268,76 @@ export const RunHistoryView: React.FC<RunHistoryViewProps> = ({
 
       {/* Runs Timeline Table */}
       <div className="bg-white dark:bg-[#131418] border border-slate-200 dark:border-[#242630] rounded-2xl overflow-hidden shadow-sm">
-        <div className="p-4 bg-slate-50 dark:bg-[#0e0f13] border-b border-slate-200 dark:border-[#242630] flex items-center justify-between">
-          <div className="flex items-center space-x-2">
+        {/* Table Header Bar & Top Pagination */}
+        <div className="p-4 bg-slate-50 dark:bg-[#0e0f13] border-b border-slate-200 dark:border-[#242630] flex flex-col md:flex-row md:items-center justify-between text-xs text-slate-600 dark:text-zinc-400 gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <h4 className="text-sm font-bold text-slate-900 dark:text-white">Execution Timeline</h4>
             <span className="text-xs px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 dark:bg-zinc-800 dark:text-zinc-400 font-mono font-bold">
-              {filteredRuns.length} runs
+              {filteredRuns.length} total runs
+            </span>
+            <span className="text-slate-400 dark:text-slate-600">•</span>
+            <span className="font-mono text-[#e31b23] dark:text-red-400 font-semibold">
+              Showing batch {startRunIndex}–{endRunIndex} of {filteredRuns.length}
             </span>
           </div>
-          <span className="text-xs text-slate-500 dark:text-zinc-400 font-mono">Sorted newest to oldest</span>
+
+          {/* Top Pagination & Batch Size Selector */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center space-x-1.5">
+              <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">Batch size:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 rounded-lg px-2 py-1 text-xs text-slate-800 dark:text-zinc-200 font-mono focus:outline-none focus:border-red-600 cursor-pointer shadow-2xs"
+              >
+                <option value={5}>5 per batch</option>
+                <option value={10}>10 per batch</option>
+                <option value={20}>20 per batch</option>
+                <option value={50}>50 per batch</option>
+              </select>
+            </div>
+
+            <div className="flex items-center space-x-1">
+              <button
+                onClick={() => setCurrentPage(1)}
+                disabled={clampedCurrentPage <= 1}
+                className="p-1.5 rounded-lg border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 disabled:opacity-40 disabled:text-slate-400 dark:disabled:text-zinc-600 disabled:bg-slate-100 dark:disabled:bg-zinc-900/40 cursor-pointer disabled:cursor-not-allowed transition shadow-2xs"
+                title="First Batch"
+              >
+                <ChevronsLeft className="w-3.5 h-3.5 stroke-[2.5]" />
+              </button>
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={clampedCurrentPage <= 1}
+                className="p-1.5 rounded-lg border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 disabled:opacity-40 disabled:text-slate-400 dark:disabled:text-zinc-600 disabled:bg-slate-100 dark:disabled:bg-zinc-900/40 cursor-pointer disabled:cursor-not-allowed transition shadow-2xs"
+                title="Previous Batch"
+              >
+                <ChevronLeft className="w-3.5 h-3.5 stroke-[2.5]" />
+              </button>
+              <span className="px-2 font-mono text-xs text-slate-800 dark:text-zinc-200 font-bold">
+                {clampedCurrentPage} / {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={clampedCurrentPage >= totalPages}
+                className="p-1.5 rounded-lg border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 disabled:opacity-40 disabled:text-slate-400 dark:disabled:text-zinc-600 disabled:bg-slate-100 dark:disabled:bg-zinc-900/40 cursor-pointer disabled:cursor-not-allowed transition shadow-2xs"
+                title="Next Batch"
+              >
+                <ChevronRight className="w-3.5 h-3.5 stroke-[2.5]" />
+              </button>
+              <button
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={clampedCurrentPage >= totalPages}
+                className="p-1.5 rounded-lg border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 disabled:opacity-40 disabled:text-slate-400 dark:disabled:text-zinc-600 disabled:bg-slate-100 dark:disabled:bg-zinc-900/40 cursor-pointer disabled:cursor-not-allowed transition shadow-2xs"
+                title="Last Batch"
+              >
+                <ChevronsRight className="w-3.5 h-3.5 stroke-[2.5]" />
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -276,7 +362,7 @@ export const RunHistoryView: React.FC<RunHistoryViewProps> = ({
                   </td>
                 </tr>
               ) : (
-                filteredRuns.map((run) => {
+                paginatedRuns.map((run) => {
                   const isBase = run.runId === selectedRunAId;
                   const isCurrent = run.runId === selectedRunBId;
 
@@ -345,6 +431,55 @@ export const RunHistoryView: React.FC<RunHistoryViewProps> = ({
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Table Bottom Pagination Bar */}
+        <div className="p-3 bg-slate-50 dark:bg-[#0e0f13] border-t border-slate-200 dark:border-[#242630] flex flex-col sm:flex-row items-center justify-between text-xs text-slate-600 dark:text-zinc-400 gap-3">
+          <div className="flex items-center space-x-2 font-mono text-[11px]">
+            <span>Showing {startRunIndex} to {endRunIndex} of {filteredRuns.length} runs</span>
+            <span className="text-slate-400 dark:text-zinc-600">•</span>
+            <span>Batch {clampedCurrentPage} of {totalPages}</span>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={clampedCurrentPage <= 1}
+              className="p-1.5 rounded-lg border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 disabled:opacity-40 disabled:text-slate-400 dark:disabled:text-zinc-600 disabled:bg-slate-100 dark:disabled:bg-zinc-900/40 cursor-pointer disabled:cursor-not-allowed transition shadow-2xs"
+              title="First Batch"
+            >
+              <ChevronsLeft className="w-4 h-4 stroke-[2.5]" />
+            </button>
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={clampedCurrentPage <= 1}
+              className="p-1.5 rounded-lg border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 disabled:opacity-40 disabled:text-slate-400 dark:disabled:text-zinc-600 disabled:bg-slate-100 dark:disabled:bg-zinc-900/40 cursor-pointer disabled:cursor-not-allowed transition shadow-2xs"
+              title="Previous Batch"
+            >
+              <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
+            </button>
+
+            <span className="px-3 py-1 bg-red-50 dark:bg-zinc-900 border border-red-200 dark:border-[#242630] rounded-lg font-mono text-xs text-red-700 dark:text-red-400 font-bold shadow-2xs">
+              {clampedCurrentPage}
+            </span>
+
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={clampedCurrentPage >= totalPages}
+              className="p-1.5 rounded-lg border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 disabled:opacity-40 disabled:text-slate-400 dark:disabled:text-zinc-600 disabled:bg-slate-100 dark:disabled:bg-zinc-900/40 cursor-pointer disabled:cursor-not-allowed transition shadow-2xs"
+              title="Next Batch"
+            >
+              <ChevronRight className="w-4 h-4 stroke-[2.5]" />
+            </button>
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={clampedCurrentPage >= totalPages}
+              className="p-1.5 rounded-lg border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 disabled:opacity-40 disabled:text-slate-400 dark:disabled:text-zinc-600 disabled:bg-slate-100 dark:disabled:bg-zinc-900/40 cursor-pointer disabled:cursor-not-allowed transition shadow-2xs"
+              title="Last Batch"
+            >
+              <ChevronsRight className="w-4 h-4 stroke-[2.5]" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
