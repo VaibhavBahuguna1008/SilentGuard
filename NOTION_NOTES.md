@@ -2,6 +2,9 @@
 
 > **Notion Documentation**: A comprehensive breakdown of the Frontend, Backend, and Database architecture in SilentGuard — explaining **what** each layer does and **how** it does it under the hood.
 
+> [!NOTE]
+> **Phase 2 Update (November 2026):** Extended with Login & Landing Pages, Excel (XLSX) upload/download support, PDF Audit Reports, Role-Based Access Control (RBAC) with employee accounts, simplified Navbar, user-scoped Run History with admin deletion, and consistent Motherson branding.
+
 ---
 
 ## 📌 Executive Summary
@@ -18,11 +21,17 @@ Traditional schema validators pass files as long as the columns exist and types 
 ┌────────────────────────────────────────────────────────────────────────┐
 │                        FRONTEND (React 19 + Vite 8)                    │
 │                                                                        │
+│  [Landing Page]  [Login Page]  [Auth Service / RBAC]                   │
+│        │              │                │                               │
+│        └──────────────┼────────────────┘                               │
+│                       ▼                                                │
 │  [Dashboard]   [Data Explorer]   [Rule Configurator]  [Audit & History]│
+│  [Run History] [User Management] [PDF Reports]  [Excel/CSV Ingestion] │
 │        │              │                  │                   │         │
 │        └──────────────┼──────────────────┴───────────────────┘         │
 │                       ▼                                                │
 │         API Client (`src/services/api.ts`)                             │
+│         Auth Service (`src/services/authService.ts`)                   │
 │         Hybrid Fallback (`src/services/validationEngine.ts`)           │
 └───────────────────────┬────────────────────────────────────────────────┘
                         │ HTTP / REST / Multipart (Port 8080)
@@ -232,13 +241,17 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
+    subgraph Auth_Tier["Authentication & Access Control Tier"]
+        AUTH["All Members: Landing Page, Login Page, RBAC Sign-In"]
+    end
+
     subgraph UI_Tier["Client Presentation Tier (React 19 + TypeScript)"]
-        M1["Member 1: UI Dashboard & Health Overview"]
-        M2["Member 2: Interactive Grid & Issue Resolution"]
+        M1["Member 1: UI Dashboard, Health Overview, Landing & Login Pages"]
+        M2["Member 2: Interactive Grid, Issue Resolution & PDF Reports"]
     end
 
     subgraph Gateway_Tier["API Gateway & Integration Tier"]
-        M3["Member 3: API Integration & File Ingestion"]
+        M3["Member 3: API Integration, File Ingestion & Auth Service"]
     end
 
     subgraph Intelligence_Tier["Quality Rules & Intelligence Tier"]
@@ -246,10 +259,12 @@ flowchart TD
     end
 
     subgraph Data_Tier["Backend & Persistence Tier (Spring Boot 4 + PostgreSQL 16)"]
-        M5["Member 5: Dynamic Database & Batch Streaming"]
-        M6["Member 6: Persistence, JPA Modeling & Audit Trail"]
+        M5["Member 5: Dynamic Database, Batch Streaming & Excel Parsing"]
+        M6["Member 6: Persistence, JPA Modeling, Audit Trail & User Management"]
     end
 
+    AUTH --> M1
+    AUTH --> M2
     M1 --> M3
     M2 --> M3
     M3 --> M5
@@ -289,6 +304,46 @@ Owns the high-level user interface: application navigation, real-time database c
 
 > *"I manage the client-side presentation layer. When a user opens SilentGuard, my code establishes the heartbeat check with the Spring Boot backend, displays the categorized dataset selector with enterprise presets, and renders the health score and execution timeline to track quality trends over time."*
 
+### **🆕 Phase 2 — Extended Tasks**
+
+#### **📂 New Files & Directories to Master**
+
+- `src/components/LandingPageView.tsx` *(Public-facing landing page: Motherson branding, technology showcase, feature highlights, and 6-member team cards with role descriptions)*
+- `src/components/LoginPage.tsx` *(Role-based login form: role category selector, employee identifier lookup, Motherson-branded authentication UI with theme toggle)*
+- `src/components/AccountShowcaseModal.tsx` *(Navbar account badge modal: displays signed-in employee profile, role, division, and sign-out action)*
+
+#### **🔍 Extended Responsibilities**
+
+1. **Landing Page Architecture (`LandingPageView.tsx`):**
+   - How the landing page renders 6 feature highlights (Silent Failure Detection, Multi-Format Ingestion, PDF Audit Reports, RBAC, Interactive Grid, Smart Rule Engine) with animated cards.
+   - How 6 team member cards are dynamically rendered with name, role badge, and technical contribution quote.
+   - How the `onGoToLogin` and `onLaunchApp` callbacks route users to Login or directly into the app (if already authenticated).
+   - How the technology stack strip displays React 19, TypeScript, Spring Boot, PostgreSQL, Tailwind CSS, and Vite icons.
+
+2. **Login Page Flow (`LoginPage.tsx`):**
+   - How users select a role category (Admin / Lead Data Steward / Plant Auditor) and the form filters matching employees from `authService.getEmployees()`.
+   - How `isAuthorizedMothersonEmail()` validates that only `@motherson.com` domain accounts can sign in.
+   - How successful login triggers `onLoginSuccess(user)` which sets the active session in `App.tsx`.
+
+3. **Dashboard False-Positive Fix (`DashboardView.tsx`):**
+   - How the violation breakdown now correctly computes issue counts from the active validation run instead of displaying stale or placeholder values.
+   - How the Record Pass/Fail rate accurately reflects `(totalRows - affectedRows) / totalRows`.
+
+4. **Simplified Navbar (`Navbar.tsx`):**
+   - How the Value Inspector button was removed to reduce congestion.
+   - How the navbar now shows only user-uploaded tables (non-admin) or all tables (admin).
+   - How the admin-only delete button (🗑️) removes uploaded datasets from the database tables dropdown.
+   - How the Account Showcase button replaces the old employee switcher — displaying the signed-in user's name and role badge.
+
+5. **User-Scoped Run History (`RunHistoryView.tsx`):**
+   - How `visibleRuns` filters runs based on dataset ownership: non-admin users see only runs on their own uploaded datasets + standard presets.
+   - How admin users see all runs across all users and get a trash icon button to delete any run.
+   - How the "Executed By" column displays who triggered each validation run.
+
+#### **🎙️ Extended Talking Points**
+
+> *"In Phase 2, I built the Landing Page that introduces SilentGuard to new visitors with Motherson branding, a technology showcase strip, and team member cards. I also built the Login Page where employees sign in by selecting their role category and verifying their Motherson account. The Dashboard now accurately computes violation breakdowns without false positives, and the Navbar has been simplified with admin-only dataset deletion and a clean account badge."*
+
 ---
 
 ## **Member 2: Interactive Grid & Issue Resolution Steward**
@@ -323,6 +378,35 @@ Owns the tabular record explorer, cell-level defect flagging, in-place spreadshe
 
 > *"I own the Data Explorer and issue remediation flow. My components highlight corrupted values directly in the tabular grid, allow data stewards to correct records in-place with instant re-validation, verify auto-fixes in a visual diff preview before database commit, and maintain a traceable audit history."*
 
+### **🆕 Phase 2 — Extended Tasks**
+
+#### **📂 New Files & Directories to Master**
+
+- `src/utils/pdfReportGenerator.ts` *(Full PDF audit report engine using jsPDF + jspdf-autotable: Motherson-branded header, executive summary, rule breakdown tables, issue inventory, resolution timeline, and compliance footer)*
+
+#### **🔍 Extended Responsibilities**
+
+1. **PDF Audit Report Generation (`pdfReportGenerator.ts`):**
+   - How `generateAuditReportPdf()` constructs a multi-page A4 PDF with Motherson red branding bar (`#c41219`), corporate header with report ID (`SG-AUDIT-2026-XXXXXX`), and generation timestamp.
+   - How the **Executive Summary** section renders dataset metadata (file name, rows, columns, pipeline type, source system) alongside health score, issue count, and rule coverage.
+   - How the **Validation Rules Applied** table lists every active rule with its type, severity, target columns, and parameters using `autoTable`.
+   - How the **Issue Inventory** table displays row index, column, invalid value, expected condition, severity, and resolution status for all detected violations.
+   - How the **Resolution Audit Trail** table tracks every remediation action (auto-fix, waive, override) with original value, resolved value, resolver identity, and timestamp.
+   - How the compliance footer includes the signed-in user's name and the report generation date.
+
+2. **Enhanced Export View (`ExportAuditView.tsx`):**
+   - How the **Download PDF Report** button triggers `generateAuditReportPdf()` and opens the PDF in a new browser tab.
+   - How export options now include PDF, Excel (XLSX), CSV, and JSON compliance package formats.
+   - How audit log deletion is now restricted to **Admin only** — the delete button is hidden for Lead and Viewer roles.
+
+3. **Excel Export Support:**
+   - How clean dataset records can be downloaded as `.xlsx` workbooks alongside the traditional `.csv` format.
+   - How the XLSX export preserves column headers and typed cell values for direct use in Microsoft Excel or Google Sheets.
+
+#### **🎙️ Extended Talking Points**
+
+> *"In Phase 2, I built the PDF Audit Report engine that generates Motherson-branded A4 compliance documents with executive summaries, rule breakdown tables, full issue inventories, and resolution trails. Data stewards and plant auditors can now download a concise, professional PDF instead of reviewing raw JSON. I also enhanced the Export view to support Excel (XLSX) downloads and restricted audit log deletion to administrators only."*
+
 ---
 
 ## **Member 3: API Integration & File Ingestion Specialist**
@@ -355,6 +439,39 @@ Owns the client-to-server bridge: drag-and-drop file upload, multipart HTTP requ
 ### **🎙️ Talking Points for Trainers**
 
 > *"I handle the integration bridge. I ensure files are securely transferred from the browser to Spring Boot via multipart REST APIs, manage CORS headers, map data into TypeScript contracts, maintain full audit trail lifecycle endpoints, and handle errors gracefully."*
+
+### **🆕 Phase 2 — Extended Tasks**
+
+#### **📂 New Files & Directories to Master**
+
+- `src/utils/spreadsheetParser.ts` *(Unified CSV + Excel parsing engine: PapaParse for CSV, SheetJS (xlsx) for XLSX/XLS, with sheet selection, header extraction, and CSV conversion)*
+- `src/services/authService.ts` *(Client-side authentication service: employee account registry, localStorage persistence, role definitions, permission mappings, and session management)*
+- Updated `src/components/UploadModal.tsx` *(Extended to accept `.xlsx` and `.xls` files alongside `.csv`, with sheet selector and Excel preview)*
+- Updated `src/services/api.ts` *(New API methods: `deleteRun(runId)`, `deleteDataset(datasetId)` for admin-only cleanup operations)*
+
+#### **🔍 Extended Responsibilities**
+
+1. **Multi-Format File Ingestion (`spreadsheetParser.ts` + `UploadModal.tsx`):**
+   - How `parseExcelBuffer()` reads an `ArrayBuffer` using SheetJS (`XLSX.read`), extracts sheet names, and converts the active worksheet into row-column JSON records.
+   - How `parseCsvString()` uses PapaParse with `header: true` and `skipEmptyLines: 'greedy'` for robust CSV parsing.
+   - How the `UploadModal` now accepts drag-and-drop of `.csv`, `.xlsx`, and `.xls` files, detects the format, and routes to the correct parser.
+   - How Excel files with multiple sheets display a **Sheet Selector** dropdown allowing users to choose which worksheet to import.
+   - How `XLSX.utils.sheet_to_csv()` converts the active Excel sheet into a standard CSV representation for backend-compatible storage.
+
+2. **Authentication Service Layer (`authService.ts`):**
+   - How `INITIAL_EMPLOYEES` pre-provisions the 6 team members with employee IDs, `@motherson.com` emails, roles (ADMIN / STEWARD / VIEWER), and MDTL division metadata.
+   - How `ROLE_PERMISSIONS` maps each role to a granular permission array (`upload_data`, `manage_rules`, `resolve_issues`, `manage_users`, `delete_audit`, `export_reports`, `view_data`).
+   - How `authService.login(identifier)` looks up an employee by email or employee ID, validates authorization via `isAuthorizedMothersonEmail()`, and persists the active session in `localStorage`.
+   - How `authService.getEmployees()` and `authService.addEmployee()` provide CRUD for the admin-managed employee registry.
+
+3. **Extended API Methods (`api.ts`):**
+   - How `deleteRun(runId)` calls `DELETE /validation/runs/:runId` to remove a validation run from backend storage.
+   - How `deleteDataset(datasetId)` calls `DELETE /datasets/:datasetId` to remove uploaded files and their dynamic PostgreSQL tables.
+   - How both methods are gated by admin role checks in the UI before invocation.
+
+#### **🎙️ Extended Talking Points**
+
+> *"In Phase 2, I extended the ingestion pipeline to support Excel (XLSX/XLS) files alongside CSV. The UploadModal now auto-detects file format, parses Excel workbooks with sheet selection, and converts them to our standard tabular representation. I also built the Authentication Service that manages employee accounts, role-based permissions, and session persistence — ensuring only authorized Motherson employees with valid @motherson.com emails can access the platform. Finally, I added API methods for admin-only run and dataset deletion."*
 
 ---
 
@@ -400,6 +517,34 @@ Owns the core intelligence of SilentGuard: server-side business rule execution, 
 
 > *"I designed the validation engine and algorithms. When a dataset is submitted, my service evaluates all 8 rule types, detects Schema Drift, computes the graduated health score, and flags record-level defects for the database."*
 
+### **🆕 Phase 2 — Extended Tasks**
+
+#### **📂 New Files & Directories to Master**
+
+- Updated `src/types/index.ts` *(Extended with `EmployeeUser`, `UserRole`, `AuthPermission` interfaces for RBAC, plus `executedBy`, `executedById`, `executedByEmail` on `ValidationRun` for run ownership tracking)*
+
+#### **🔍 Extended Responsibilities**
+
+1. **RBAC Type Definitions (`types/index.ts`):**
+   - How `UserRole = 'ADMIN' | 'STEWARD' | 'VIEWER'` maps to the three access tiers (Administrator, Lead Data Steward, Plant Auditor/Viewer).
+   - How `AuthPermission` defines the granular permission tokens (`upload_data`, `manage_rules`, `resolve_issues`, `manage_users`, `delete_audit`, `export_reports`, `view_data`) that gate UI and API actions.
+   - How `EmployeeUser` captures `id`, `employeeId`, `name`, `email`, `role`, `division`, `plantLocation`, `status`, `createdDate`, `lastLogin`, and `avatarColor` for the employee registry.
+
+2. **Validation Run Attribution:**
+   - How `ValidationRun` was extended with `executedBy?: string`, `executedById?: string`, and `executedByEmail?: string` to track which employee triggered each run.
+   - How these fields enable user-scoped Run History filtering: non-admin users see only their own runs, admin sees all.
+
+3. **Validation Button Discipline:**
+   - How the validation flow in `App.tsx` was corrected to ensure data processing only triggers when the user explicitly clicks "Run Validation" — not during file upload or dataset switching.
+   - How `ValidationRun` creation now stamps the current user's identity (`executedBy`, `executedByEmail`) at execution time.
+
+4. **Excel-Aware Type Contracts:**
+   - How the `Dataset` interface accommodates both CSV and XLSX sources with consistent `rawCsvContent`, `columns`, and `data` fields regardless of the original file format.
+
+#### **🎙️ Extended Talking Points**
+
+> *"In Phase 2, I extended the core type system with RBAC types — UserRole, AuthPermission, and EmployeeUser — that power the entire access control layer. I also added execution attribution fields to ValidationRun so each run records who triggered it, enabling user-scoped Run History. The validation flow now correctly waits for explicit user action before processing, and the type contracts cleanly accommodate both CSV and Excel data sources."*
+
 ---
 
 ## **Member 5: Dynamic Database Architecture & CSV Streaming**
@@ -436,6 +581,36 @@ Owns low-level CSV stream parsing, dynamic PostgreSQL DDL table generation, and 
 
 > *"I am responsible for the dynamic data tier. Rather than dumping every CSV into a generic table, my service dynamically generates a strongly-isolated PostgreSQL table for each upload, sanitizes headers, and safely inserts rows using parameterized SQL and parallel chunk partitioning."*
 
+### **🆕 Phase 2 — Extended Tasks**
+
+#### **📂 New Files & Directories to Master**
+
+- `src/utils/spreadsheetParser.ts` *(Shared ownership with Member 3 — focus on the parsing pipeline: SheetJS workbook reading, sheet-to-JSON row extraction, header deduplication, and CSV conversion for backend storage)*
+- Updated `src/utils/csvParser.ts` *(Enhanced CSV utility with Excel-compatible download functions and multi-format export support)*
+
+#### **🔍 Extended Responsibilities**
+
+1. **Excel (XLSX) Parsing Pipeline (`spreadsheetParser.ts`):**
+   - How `XLSX.read(buffer, { type: 'array', cellDates: true })` reads raw binary Excel data into an in-memory workbook representation.
+   - How `XLSX.utils.sheet_to_json()` with `{ defval: '', raw: false }` converts worksheet cells into uniform `Record<string, string>` rows with empty-string defaults.
+   - How header deduplication works: the parser scans the first 20 rows to discover all column names, filters out `__EMPTY` ghost headers from sparse sheets, and preserves original ordering.
+   - How `XLSX.utils.sheet_to_csv()` generates a standard CSV string from any worksheet for backend-compatible storage and preview.
+
+2. **Multi-Sheet Support:**
+   - How `workbook.SheetNames` exposes all available sheets and the `preferredSheet` parameter allows users to select which worksheet to import.
+   - How the fallback logic defaults to the first sheet when no preference is specified.
+
+3. **Enhanced CSV Utility (`csvParser.ts`):**
+   - How the CSV download function now supports exporting clean dataset records as `.xlsx` workbooks using SheetJS `XLSX.utils.json_to_sheet()` and `XLSX.writeFile()`.
+   - How both CSV and XLSX exports preserve column order and data fidelity from the in-memory dataset representation.
+
+4. **Dataset Deletion Support:**
+   - How admin-initiated dataset deletion flows through the API to drop the corresponding dynamic PostgreSQL table (`ds_<filename>`) alongside removing the metadata row from the `datasets` table.
+
+#### **🎙️ Extended Talking Points**
+
+> *"In Phase 2, I extended the streaming pipeline to handle Excel workbooks alongside CSV. The new spreadsheet parser reads XLSX/XLS files using SheetJS, extracts multi-sheet workbooks, deduplicates headers, and converts worksheets into our standard row-column format. I also enhanced the CSV utility to support XLSX downloads, so users can export clean datasets in the format most convenient for their workflow. Admin-initiated dataset deletion now properly drops the dynamic PostgreSQL table."*
+
 ---
 
 ## **Member 6: Persistence, JPA Modeling & Audit Trail Engineer**
@@ -471,11 +646,49 @@ Owns the relational data schema, JPA entities, repositories, automated startup d
 
 > *"I maintain the relational schema, JPA entities, and database repositories. I built the `DataInitializer` that automatically prepares our database on first launch with 21 business rules and 3 enterprise presets, and manage the rule repository and audit persistence layer."*
 
+### **🆕 Phase 2 — Extended Tasks**
+
+#### **📂 New Files & Directories to Master**
+
+- `src/components/UserManagementView.tsx` *(Admin-only RBAC dashboard: employee onboarding form, role assignment, employee search & filter, status toggling, and role-based employee registry)*
+- `src/components/AccountShowcaseModal.tsx` *(Navbar account profile modal: displays signed-in user's name, email, employee ID, role, division, plant location, and sign-out)*
+- `src/components/SignInModal.tsx` *(Sign-in workflow modal: employee selection by role, authentication confirmation)*
+- `src/components/AuthModal.tsx` *(Authentication modal wrapper: role category selection and employee identity verification)*
+- `src/services/authService.ts` *(Shared ownership with Member 3 — focus on persistence: localStorage employee registry, session state management, and CRUD operations)*
+
+#### **🔍 Extended Responsibilities**
+
+1. **User Management Dashboard (`UserManagementView.tsx`):**
+   - How the admin-only view displays a filterable, searchable table of all registered employees with their name, email, employee ID, role badge, division, plant location, and account status.
+   - How the **Onboard Employee** form validates `@motherson.com` email addresses, generates unique employee IDs, assigns roles, and persists new accounts via `authService.addEmployee()`.
+   - How role distribution counters show the breakdown of Admin / Lead Data Steward / Plant Auditor accounts across the organization.
+   - How employee status can be toggled (Active/Inactive) to enable or disable access without deleting the account.
+   - How **only Admin users** can access this view — the navigation link is hidden for STEWARD and VIEWER roles.
+
+2. **Account Showcase & Session Management (`AccountShowcaseModal.tsx`):**
+   - How the Navbar account button opens a modal showing the currently signed-in employee's full profile: name, email, employee ID, role with description, division (MDTL), plant location (Sector 62, Noida), account creation date, and last login.
+   - How the Sign Out button clears the active session from `localStorage` and redirects to the Landing Page.
+
+3. **Authentication Modals (`SignInModal.tsx`, `AuthModal.tsx`):**
+   - How `AuthModal` presents role categories (Admin / Lead Data Steward / Plant Auditor) and routes to the appropriate sign-in flow.
+   - How `SignInModal` lists matching employees filtered by the selected role, allows selection, and triggers authentication via `authService.login()`.
+
+4. **Employee Registry Persistence (`authService.ts`):**
+   - How employee data is persisted in `localStorage` under `silentguard_employee_accounts_v4`, surviving browser refreshes and page reloads.
+   - How the active session is stored under `silentguard_active_user_id_v4` and restored on application startup.
+   - How `authService.getEmployees()`, `authService.addEmployee()`, and `authService.removeEmployee()` provide full CRUD for the employee registry.
+
+#### **🎙️ Extended Talking Points**
+
+> *"In Phase 2, I built the User Management Dashboard where administrators can onboard new Motherson employees, assign roles, and manage account status. I implemented the Account Showcase modal that displays the signed-in user's full profile in the navbar, and the authentication workflow with role-category selection and session persistence. Employee accounts persist in localStorage with versioned keys, and only Admin users can access the management view."*
+
 ---
 
 # **Team Presentation Checklist**
 
 To deliver a cohesive demo to your trainers, follow this exact sequence:
+
+### Phase 1 — Core Engine Demo
 
 | Step | Presenter | Action to Show on Screen | Key Talking Point |
 | :---: | :--- | :--- | :--- |
@@ -485,4 +698,16 @@ To deliver a cohesive demo to your trainers, follow this exact sequence:
 | **4** | **Member 4** | Walk through the detected issues on screen: negative salary, missing email, duplicate ID. Explain the rule logic and health scoring formula. | *8 rule processors, Schema Drift detection, continuous weighted defect scoring.* |
 | **5** | **Member 2** | Open **Records & Exceptions** tab. Double-click a defective cell, fix the value in-place, open auto-fix preview, and save a resolution comment. | *Cell flagging, in-place editing, auto-fix verification diff, immutable audit trail.* |
 | **6** | **Member 6** | Open **Rules & Dictionary** tab. Toggle a rule off/on. Show the updated state in PostgreSQL `validation_rules` table and explain the audit trail. | *JPA entity lifecycle, automated multi-preset seeding, live rule repository updates.* |
+
+### Phase 2 — Extended Features Demo
+
+| Step | Presenter | Action to Show on Screen | Key Talking Point |
+| :---: | :--- | :--- | :--- |
+| **7** | **Member 1** | Navigate to the **Landing Page**. Walk through the Motherson branding, feature highlights, technology strip, and team member cards. | *Public-facing showcase, Motherson typography, feature discovery.* |
+| **8** | **Member 1** | Click **Sign In** from the Landing Page. Select a role category (Admin), choose Vaibhav Bahuguna, and log in. Point out the account badge in the navbar. | *Role-based authentication, employee lookup, session management.* |
+| **9** | **Member 3** | Click **Upload** and drag an `.xlsx` Excel file. Show the sheet selector dropdown and preview. Explain multi-format ingestion. | *SheetJS Excel parsing, sheet selection, CSV conversion for backend.* |
+| **10** | **Member 2** | Open **Audit & Export** tab. Click **Download PDF Report**. Open the generated PDF and walk through the branded executive summary, rule tables, and issue inventory. | *jsPDF + autoTable, Motherson-branded A4 layout, compliance-grade reporting.* |
+| **11** | **Member 4** | Navigate to **Run History**. Show that only the logged-in user's runs are visible. Log in as Admin and show all runs with delete buttons. | *Run attribution, user-scoped filtering, admin-only deletion.* |
+| **12** | **Member 6** | Navigate to **User Management** (Admin only). Onboard a new employee with `@motherson.com` email, assign the Viewer role. Show the role distribution counters. | *Employee onboarding, RBAC registry, permission-gated access.* |
+| **13** | **Member 5** | Show export options: download the clean dataset as both `.csv` and `.xlsx`. Explain the Excel workbook generation. | *Multi-format export, SheetJS writeFile, column fidelity.* |
 
