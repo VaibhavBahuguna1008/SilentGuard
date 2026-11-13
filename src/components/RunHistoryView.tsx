@@ -16,35 +16,79 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  Trash2,
+  User,
+  ShieldAlert
 } from 'lucide-react';
-import { ValidationRun } from '../types';
+import { ValidationRun, Dataset, EmployeeUser } from '../types';
 
 interface RunHistoryViewProps {
   runs: ValidationRun[];
+  allDatasets?: Dataset[];
+  currentUser?: EmployeeUser | null;
+  onDeleteRun?: (runId: string) => void;
   onSelectRunForInspection?: (run: ValidationRun) => void;
 }
 
 export const RunHistoryView: React.FC<RunHistoryViewProps> = ({
-  runs
+  runs,
+  allDatasets = [],
+  currentUser,
+  onDeleteRun
 }) => {
-  // Unique datasets present in runs
+  const isAdmin = currentUser?.role === 'ADMIN';
+
+  // 1. Filter runs visible to the current user:
+  // - Admin can see everyone's runs.
+  // - Other users can ONLY see runs for files they uploaded and validated (or standard presets they executed).
+  const visibleRuns = useMemo(() => {
+    if (isAdmin || !currentUser) return runs;
+
+    // Build a set of dataset IDs owned by this user or standard presets
+    const allowedDatasetIds = new Set<string>();
+    allDatasets.forEach(ds => {
+      const isOwner = (ds.uploadedById && ds.uploadedById.toUpperCase() === currentUser.employeeId.toUpperCase()) ||
+                      (ds.uploadedByEmail && ds.uploadedByEmail.toLowerCase() === currentUser.email.toLowerCase()) ||
+                      (ds.uploadedBy && (
+                        ds.uploadedBy.includes(currentUser.employeeId) || 
+                        ds.uploadedBy.includes(currentUser.name)
+                      ));
+      if (ds.isPreset || isOwner) {
+        allowedDatasetIds.add(ds.datasetId);
+      }
+    });
+
+    return runs.filter(r => {
+      // Direct dataset ownership match
+      if (allowedDatasetIds.has(r.datasetId)) return true;
+
+      // Executed by this specific user
+      if (r.executedById && r.executedById.toUpperCase() === currentUser.employeeId.toUpperCase()) return true;
+      if (r.executedByEmail && r.executedByEmail.toLowerCase() === currentUser.email.toLowerCase()) return true;
+      if (r.executedBy && (r.executedBy.includes(currentUser.employeeId) || r.executedBy.includes(currentUser.name))) return true;
+
+      return false;
+    });
+  }, [runs, allDatasets, currentUser, isAdmin]);
+
+  // Unique datasets present in user's visible runs
   const datasets = useMemo(() => {
     const map = new Map<string, string>();
-    runs.forEach(r => {
+    visibleRuns.forEach(r => {
       map.set(r.datasetId, r.datasetName || `Dataset ${r.datasetId.substring(0, 8)}`);
     });
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-  }, [runs]);
+  }, [visibleRuns]);
 
   // Selected dataset filter (defaults to first dataset or 'ALL')
   const [selectedDatasetId, setSelectedDatasetId] = useState<string>('ALL');
 
   // Filter runs by chosen dataset
   const filteredRuns = useMemo(() => {
-    if (selectedDatasetId === 'ALL') return runs;
-    return runs.filter(r => r.datasetId === selectedDatasetId);
-  }, [runs, selectedDatasetId]);
+    if (selectedDatasetId === 'ALL') return visibleRuns;
+    return visibleRuns.filter(r => r.datasetId === selectedDatasetId);
+  }, [visibleRuns, selectedDatasetId]);
 
   // Chronologically sorted runs (Oldest first -> Newest last) for natural Baseline -> Current delta
   const chronologicalRuns = useMemo(() => {
@@ -125,11 +169,13 @@ export const RunHistoryView: React.FC<RunHistoryViewProps> = ({
             <History className="w-5 h-5 text-red-600 dark:text-red-500" />
             <h3 className="text-base font-bold text-slate-900 dark:text-white">Validation Run History &amp; Revalidation Delta</h3>
             <span className="text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/30 font-mono font-bold">
-              {runs.length} Total Runs
+              {filteredRuns.length} Runs {isAdmin ? '(All Users)' : '(My Files)'}
             </span>
           </div>
           <p className="text-xs text-slate-600 dark:text-zinc-400 mt-1 max-w-2xl">
-            Compare earlier baseline runs against subsequent revalidation runs to observe defect reduction, schema stabilization, and health score recovery across Motherson automotive files.
+            {isAdmin 
+              ? 'Administrator View: Full access to all execution runs across all users, with options to delete obsolete validation runs.'
+              : 'User Scope: Showing only validation runs for datasets you uploaded and validated, alongside standard presets.'}
           </p>
         </div>
 
@@ -351,13 +397,15 @@ export const RunHistoryView: React.FC<RunHistoryViewProps> = ({
                 <th className="py-2.5 px-3 text-center">Health Score</th>
                 <th className="py-2.5 px-3 text-center">Passed / Total</th>
                 <th className="py-2.5 px-3 text-center">Violations</th>
+                <th className="py-2.5 px-3">Executed By</th>
                 <th className="py-2.5 px-3 text-right">Duration</th>
+                {isAdmin && <th className="py-2.5 px-3 text-right">Action</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-[#242630] font-mono text-slate-800 dark:text-zinc-200">
               {filteredRuns.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-500 dark:text-zinc-500">
+                  <td colSpan={isAdmin ? 10 : 9} className="py-8 text-center text-slate-500 dark:text-zinc-500">
                     No validation runs recorded for this dataset scope.
                   </td>
                 </tr>
@@ -391,7 +439,7 @@ export const RunHistoryView: React.FC<RunHistoryViewProps> = ({
                       <td className="py-3 px-3 text-slate-500 dark:text-slate-400">
                         {new Date(run.completedAt).toLocaleDateString()} {new Date(run.completedAt).toLocaleTimeString()}
                       </td>
-                      <td className="py-3 px-3 text-slate-800 dark:text-slate-300 font-semibold truncate max-w-[200px]" title={run.datasetName}>
+                      <td className="py-3 px-3 text-slate-800 dark:text-slate-300 font-semibold truncate max-w-[180px]" title={run.datasetName}>
                         {run.datasetName || run.datasetId}
                       </td>
                       <td className="py-3 px-3 text-center">
@@ -422,9 +470,28 @@ export const RunHistoryView: React.FC<RunHistoryViewProps> = ({
                           </span>
                         )}
                       </td>
+                      <td className="py-3 px-3 text-slate-600 dark:text-zinc-400 text-[11px] truncate max-w-[140px]" title={run.executedBy || 'System / Auto'}>
+                        {run.executedBy || 'System / Auto'}
+                      </td>
                       <td className="py-3 px-3 text-right text-slate-500 dark:text-zinc-400">
                         {run.executionTimeMs}ms
                       </td>
+                      {isAdmin && (
+                        <td className="py-3 px-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`Are you sure you want to delete Run #${run.runNumber} for "${run.datasetName || run.datasetId}"?`)) {
+                                if (onDeleteRun) onDeleteRun(run.runId);
+                              }
+                            }}
+                            className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition cursor-pointer"
+                            title={`Admin: Delete Run #${run.runNumber}`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })

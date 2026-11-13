@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Navbar } from './components/Navbar';
 import { DashboardView } from './components/DashboardView';
 import { DataExplorerView } from './components/DataExplorerView';
@@ -8,6 +8,11 @@ import { RunHistoryView } from './components/RunHistoryView';
 import { ExportAuditView } from './components/ExportAuditView';
 import { UploadModal } from './components/UploadModal';
 import { ContextualDisambiguatorModal } from './components/ContextualDisambiguatorModal';
+import { UserManagementView } from './components/UserManagementView';
+import { AccountShowcaseModal } from './components/AccountShowcaseModal';
+import { SignInModal } from './components/SignInModal';
+import { LandingPageView } from './components/LandingPageView';
+import { LoginPage } from './components/LoginPage';
 
 import { 
   Dataset, 
@@ -15,7 +20,8 @@ import {
   ValidationRun, 
   ValidationIssue, 
   ResolutionHistory, 
-  ResolutionStatus 
+  ResolutionStatus,
+  EmployeeUser 
 } from './types';
 import { 
   EMPLOYEE_CSV, 
@@ -28,15 +34,17 @@ import {
 import { createDatasetFromCsv } from './utils/csvParser';
 import { runValidation as clientRunValidation } from './services/validationEngine';
 import { api, BackendHealth } from './services/api';
+import { authService } from './services/authService';
 import mothersonLogo from './assets/motherson-logo.png';
 
-// Baseline demo datasets always available as options
+// Baseline demo datasets always available as options to all users and admin
 const SEED_DATASETS: Dataset[] = [
   createDatasetFromCsv(
     'employee_master_roster.csv',
     EMPLOYEE_CSV,
     'HR Ops Sync',
     'Workday HCM Cloud',
+    true,
     true
   ),
   createDatasetFromCsv(
@@ -44,6 +52,7 @@ const SEED_DATASETS: Dataset[] = [
     MOTHERSON_PARTS_CSV,
     'MES Quality Gateway',
     'Motherson Shopfloor MES',
+    true,
     true
   ),
   createDatasetFromCsv(
@@ -51,6 +60,7 @@ const SEED_DATASETS: Dataset[] = [
     FINANCIAL_ORDERS_CSV,
     'Payment Gateway Batch',
     'Stripe Global Ledger',
+    true,
     true
   )
 ];
@@ -58,6 +68,21 @@ const SEED_DATASETS: Dataset[] = [
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [backendHealth, setBackendHealth] = useState<BackendHealth | null>(null);
+
+  // Authenticated Motherson Employee State
+  const [currentUser, setCurrentUser] = useState<EmployeeUser>(() => authService.getCurrentUser());
+  const [isAccountShowcaseOpen, setIsAccountShowcaseOpen] = useState<boolean>(false);
+  const [isSignInOpen, setIsSignInOpen] = useState<boolean>(false);
+
+  // Top-Level Application Page View: 'landing' | 'login' | 'workspace'
+  const [pageView, setPageView] = useState<'landing' | 'login' | 'workspace'>('landing');
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    try {
+      const auth = localStorage.getItem('silentguard_is_auth');
+      return auth !== 'false' && auth !== null;
+    } catch {}
+    return true;
+  });
 
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     try {
@@ -125,9 +150,51 @@ export default function App() {
   const [disambiguatorValue, setDisambiguatorValue] = useState<string>('120');
 
   const activeDataset = datasets.find(d => d.datasetId === activeDatasetId) || datasets[0];
-  const latestRun = runs.find(r => r.datasetId === activeDataset?.datasetId) || (runs.length > 0 ? runs[0] : null);
+  
+  // Strictly find run for the active dataset; NEVER fall back to another dataset's run
+  const latestRun = runs.find(r => r.datasetId === activeDataset?.datasetId) || null;
 
-  // Initial load from backend (PostgreSQL)
+  // Filter issues strictly belonging to the active dataset
+  const activeDatasetIssues = useMemo(() => {
+    if (!activeDataset) return [];
+    return currentIssues.filter(i => i.datasetId === activeDataset.datasetId);
+  }, [currentIssues, activeDataset?.datasetId]);
+
+  // Enforce RBAC Tab Visibility: Only Admin can access 'users' tab
+  useEffect(() => {
+    if (activeTab === 'users' && currentUser.role !== 'ADMIN') {
+      setActiveTab('dashboard');
+    }
+  }, [activeTab, currentUser.role]);
+
+  // Ensure active dataset is accessible to current user
+  useEffect(() => {
+    if (currentUser.role === 'ADMIN') return;
+
+    const currentDs = datasets.find(d => d.datasetId === activeDatasetId);
+    if (!currentDs) return;
+
+    const isPreset = currentDs.isPreset || SEED_DATASETS.some(s => s.datasetId === currentDs.datasetId);
+    if (isPreset) return;
+
+    const isOwner = (currentDs.uploadedById && currentDs.uploadedById.toUpperCase() === currentUser.employeeId.toUpperCase()) ||
+                    (currentDs.uploadedByEmail && currentDs.uploadedByEmail.toLowerCase() === currentUser.email.toLowerCase()) ||
+                    (currentDs.uploadedBy && (
+                      currentDs.uploadedBy.includes(currentUser.employeeId) || 
+                      currentDs.uploadedBy.includes(currentUser.name)
+                    ));
+
+    if (!isOwner) {
+      const defaultPreset = SEED_DATASETS[0];
+      setActiveDatasetId(defaultPreset.datasetId);
+      try {
+        localStorage.setItem('silentguard_active_dataset_id', defaultPreset.datasetId);
+        localStorage.setItem('silentguard_active_dataset_name', defaultPreset.fileName);
+      } catch {}
+    }
+  }, [currentUser, activeDatasetId, datasets]);
+
+  // Initial load from backend (PostgreSQL) - Load metadata only without auto-running validation
   useEffect(() => {
     async function initFromBackend() {
       try {
@@ -135,12 +202,7 @@ export default function App() {
         setBackendHealth(health);
 
         if (health) {
-          // Fetch datasets from PostgreSQL
           const dbDatasets = await api.fetchDatasets();
-          
-          // Merge datasets from PostgreSQL and seed datasets:
-          // 1. PostgreSQL datasets take precedence (contain persisted uploads)
-          // 2. Any seed dataset not yet in PostgreSQL is preserved so options are never missing
           const mergedDatasets: Dataset[] = [];
           const seenNames = new Set<string>();
 
@@ -164,7 +226,7 @@ export default function App() {
 
           setDatasets(mergedDatasets);
 
-          // Restore recent used dataset from localStorage or active state
+          // Restore recent active dataset
           let recentId: string | null = null;
           let recentName: string | null = null;
           try {
@@ -189,9 +251,8 @@ export default function App() {
             } catch {}
           }
 
-          const effectiveDatasets = mergedDatasets;
           const datasetsMap = new Map<string, string>();
-          effectiveDatasets.forEach(d => datasetsMap.set(d.datasetId, d.fileName));
+          mergedDatasets.forEach(d => datasetsMap.set(d.datasetId, d.fileName));
 
           // Fetch rules from PostgreSQL
           const dbRules = await api.fetchRules();
@@ -212,11 +273,10 @@ export default function App() {
           }
           setRules(effectiveRules);
 
-          // Fetch runs and audit history
+          // Fetch runs and issues (if previously executed) without auto-executing new runs
           const dbRuns = await api.fetchRuns(undefined, datasetsMap);
           if (dbRuns && dbRuns.length > 0) {
             setRuns(dbRuns);
-            // Fetch issues for the recent active dataset if available
             const latestForActive = dbRuns.find(r => r.datasetId === selected?.datasetId);
             if (latestForActive) {
               const issues = await api.fetchRunIssues(latestForActive.runId);
@@ -225,12 +285,8 @@ export default function App() {
                 i.foundValue !== '<MISSING HEADER>' && 
                 i.foundValue !== '<MISSING SECOND COLUMN>'
               ) : issues;
-              setCurrentIssues(cleanIssues.length > 0 ? cleanIssues : issues);
-            } else if (selected) {
-              handleExecuteValidation(selected, effectiveRules);
+              setCurrentIssues(cleanIssues);
             }
-          } else if (selected) {
-            handleExecuteValidation(selected, effectiveRules);
           }
 
           const dbHistory = await api.fetchAuditHistory();
@@ -246,7 +302,7 @@ export default function App() {
     initFromBackend();
   }, []);
 
-  // Validation execution (Backend with PostgreSQL persistence)
+  // Validation execution: ONLY called when user explicitly clicks "Validate"
   const handleExecuteValidation = useCallback(async (customDataset?: Dataset, customRules?: ValidationRule[]) => {
     const targetDataset = customDataset || activeDataset;
     const targetRules = customRules || rules;
@@ -264,32 +320,88 @@ export default function App() {
       );
 
       // Cleanse result issues to guarantee accurate column domain isolation
-      const cleanIssues = result.issues.filter(i => 
+      const cleanIssues = (result.issues || []).filter(i => 
         targetDataset.columns.includes(i.columnName) &&
         i.foundValue !== '<MISSING HEADER>' &&
         i.foundValue !== '<MISSING SECOND COLUMN>'
       );
 
-      setRuns(prev => [result.run, ...prev]);
-      setCurrentIssues(cleanIssues.length > 0 ? cleanIssues : result.issues);
+      const failedRowSet = new Set(cleanIssues.map(i => i.rowNumber));
+      const failedCount = failedRowSet.size;
+      const passedCount = Math.max(0, targetDataset.rowCount - failedCount);
+      const computedScore = targetDataset.rowCount > 0 
+        ? Math.round((passedCount / targetDataset.rowCount) * 100) 
+        : 100;
+
+      const correctedRun: ValidationRun = {
+        ...result.run,
+        datasetId: targetDataset.datasetId,
+        datasetName: targetDataset.fileName,
+        failedRecords: failedCount,
+        passedRecords: passedCount,
+        healthScore: computedScore,
+        runStatus: failedCount === 0 ? 'PASSED' : (computedScore < 70 ? 'FAILED' : 'WARNING'),
+        totalIssuesCount: cleanIssues.length,
+        criticalIssuesCount: cleanIssues.filter(i => i.severity === 'CRITICAL').length,
+        errorIssuesCount: cleanIssues.filter(i => i.severity === 'ERROR').length,
+        warningIssuesCount: cleanIssues.filter(i => i.severity === 'WARNING').length,
+        executedBy: `${currentUser.name} (${currentUser.employeeId})`,
+        executedById: currentUser.employeeId,
+        executedByEmail: currentUser.email
+      };
+
+      setRuns(prev => [correctedRun, ...prev.filter(r => r.datasetId !== targetDataset.datasetId)]);
+      setCurrentIssues(prev => [
+        ...cleanIssues,
+        ...prev.filter(i => i.datasetId !== targetDataset.datasetId)
+      ]);
     } catch (err) {
-      console.warn('Falling back to client validation engine:', err);
-      // Resilient fallback to client-side engine if backend call fails
+      console.warn('Using client validation engine:', err);
+      // Resilient client-side engine execution
       const nextRunNumber = runs.filter(r => r.datasetId === targetDataset.datasetId).length + 1;
       const { run, issues } = clientRunValidation(targetDataset, targetRules, nextRunNumber);
+      
       const cleanIssues = issues.filter(i => 
         targetDataset.columns.includes(i.columnName) &&
         i.foundValue !== '<MISSING HEADER>' &&
         i.foundValue !== '<MISSING SECOND COLUMN>'
       );
-      setRuns(prev => [run, ...prev]);
-      setCurrentIssues(cleanIssues.length > 0 ? cleanIssues : issues);
+
+      const failedRowSet = new Set(cleanIssues.map(i => i.rowNumber));
+      const failedCount = failedRowSet.size;
+      const passedCount = Math.max(0, targetDataset.rowCount - failedCount);
+      const computedScore = targetDataset.rowCount > 0 
+        ? Math.round((passedCount / targetDataset.rowCount) * 100) 
+        : 100;
+
+      const correctedRun: ValidationRun = {
+        ...run,
+        datasetId: targetDataset.datasetId,
+        datasetName: targetDataset.fileName,
+        failedRecords: failedCount,
+        passedRecords: passedCount,
+        healthScore: computedScore,
+        runStatus: failedCount === 0 ? 'PASSED' : (computedScore < 70 ? 'FAILED' : 'WARNING'),
+        totalIssuesCount: cleanIssues.length,
+        criticalIssuesCount: cleanIssues.filter(i => i.severity === 'CRITICAL').length,
+        errorIssuesCount: cleanIssues.filter(i => i.severity === 'ERROR').length,
+        warningIssuesCount: cleanIssues.filter(i => i.severity === 'WARNING').length,
+        executedBy: `${currentUser.name} (${currentUser.employeeId})`,
+        executedById: currentUser.employeeId,
+        executedByEmail: currentUser.email
+      };
+
+      setRuns(prev => [correctedRun, ...prev.filter(r => r.datasetId !== targetDataset.datasetId)]);
+      setCurrentIssues(prev => [
+        ...cleanIssues,
+        ...prev.filter(i => i.datasetId !== targetDataset.datasetId)
+      ]);
     } finally {
       setIsValidating(false);
     }
   }, [activeDataset, rules, runs]);
 
-  // Switch dataset
+  // Switch dataset without auto-running validation
   const handleSelectDataset = async (id: string) => {
     setActiveDatasetId(id);
     const chosen = datasets.find(d => d.datasetId === id);
@@ -300,7 +412,7 @@ export default function App() {
       localStorage.setItem('silentguard_active_dataset_name', chosen.fileName);
     } catch {}
 
-    // Load matching preset if applicable
+    // Load matching preset rules for the selected dataset
     let newRules = [...rules];
     let detectedPresetId = '';
     const fn = chosen.fileName.toLowerCase();
@@ -318,7 +430,7 @@ export default function App() {
     if (detectedPresetId) setActivePresetId(detectedPresetId);
     setRules(newRules);
 
-    // Look for existing runs for this dataset
+    // If an existing run already exists for this dataset, fetch its issues; otherwise leave unvalidated
     const existingRun = runs.find(r => r.datasetId === id);
     if (existingRun) {
       try {
@@ -328,16 +440,17 @@ export default function App() {
           i.foundValue !== '<MISSING HEADER>' && 
           i.foundValue !== '<MISSING SECOND COLUMN>'
         );
-        setCurrentIssues(cleanIssues.length > 0 ? cleanIssues : issues);
+        setCurrentIssues(prev => [
+          ...cleanIssues,
+          ...prev.filter(i => i.datasetId !== id)
+        ]);
       } catch (e) {
         console.warn('Could not fetch issues for existing run:', e);
       }
-    } else {
-      handleExecuteValidation(chosen, newRules);
     }
   };
 
-  // Rule operations
+  // Rule configuration changes (do NOT auto-run validation; user clicks Validate)
   const handleToggleRule = async (ruleId: string) => {
     const updated = rules.map(r => r.ruleId === ruleId ? { ...r, enabled: !r.enabled } : r);
     setRules(updated);
@@ -347,8 +460,6 @@ export default function App() {
     } catch (e) {
       console.warn('Rule toggle backend sync failed:', e);
     }
-
-    handleExecuteValidation(activeDataset, updated);
   };
 
   const handleAddRule = async (newRule: ValidationRule) => {
@@ -360,8 +471,6 @@ export default function App() {
     } catch (e) {
       console.warn('Rule save backend sync failed:', e);
     }
-
-    handleExecuteValidation(activeDataset, updated);
   };
 
   const handleAddMultipleRules = async (newRules: ValidationRule[]) => {
@@ -375,8 +484,6 @@ export default function App() {
         console.warn('Rule save backend sync failed:', e);
       }
     }
-
-    handleExecuteValidation(activeDataset, updated);
   };
 
   const handleDeleteRule = async (ruleId: string) => {
@@ -388,8 +495,6 @@ export default function App() {
     } catch (e) {
       console.warn('Rule delete backend sync failed:', e);
     }
-
-    handleExecuteValidation(activeDataset, updated);
   };
 
   const handleApplyPreset = (presetId: string) => {
@@ -399,7 +504,6 @@ export default function App() {
     setActivePresetId(presetId);
     setRules([...preset.rules]);
 
-    // Align with the corresponding demo dataset if available
     const matchingDataset = datasets.find(d => {
       const name = d.fileName.toLowerCase();
       if (presetId === 'preset-employee') return name.includes('employee');
@@ -408,7 +512,6 @@ export default function App() {
       return false;
     });
 
-    const targetDataset = matchingDataset || activeDataset;
     if (matchingDataset && matchingDataset.datasetId !== activeDatasetId) {
       setActiveDatasetId(matchingDataset.datasetId);
       try {
@@ -416,18 +519,13 @@ export default function App() {
         localStorage.setItem('silentguard_active_dataset_name', matchingDataset.fileName);
       } catch {}
     }
-
-    handleExecuteValidation(targetDataset, [...preset.rules]);
   };
 
-  // Update rule reference list (e.g. when department directory expands)
   const handleUpdateRuleReferenceList = (ruleId: string, newList: string[]) => {
     const updated = rules.map(r => r.ruleId === ruleId ? { ...r, referenceList: newList } : r);
     setRules(updated);
-    handleExecuteValidation(activeDataset, updated);
   };
 
-  // Dataset in-place correction and dynamic column revalidation
   const handleUpdateDatasetRecords = async (updatedRecords: Record<string, string>[], updatedColumns?: string[]) => {
     const newCols = updatedColumns || activeDataset.columns;
     const updatedDataset: Dataset = {
@@ -446,12 +544,12 @@ export default function App() {
       console.warn('Dataset update backend sync failed:', e);
     }
 
+    // Revalidate after in-place corrections
     handleExecuteValidation(updatedDataset, rules);
   };
 
-  // Add new uploaded dataset (persisted in PostgreSQL)
+  // Add new uploaded dataset (does NOT auto-run validation; prompts user on dashboard)
   const handleDatasetCreated = (newDataset: Dataset, suggestedPresetId?: string) => {
-    // Replace any previous dataset with the same filename to ensure no duplicates
     const normName = newDataset.fileName.trim().toLowerCase();
     setDatasets(prev => [
       newDataset,
@@ -464,23 +562,19 @@ export default function App() {
       localStorage.setItem('silentguard_active_dataset_name', newDataset.fileName);
     } catch {}
 
-    let nextRules = [...rules];
     if (suggestedPresetId) {
       setActivePresetId(suggestedPresetId);
       const preset = RULE_PRESETS.find(p => p.id === suggestedPresetId);
       if (preset) {
-        nextRules = [...preset.rules];
-        setRules(nextRules);
+        setRules([...preset.rules]);
       }
     }
 
-    handleExecuteValidation(newDataset, nextRules);
     setActiveTab('dashboard');
   };
 
-  // Handle Issue Resolution Comment & Status (persisted to PostgreSQL)
+  // Handle Issue Resolution
   const handleUpdateResolution = async (issueId: string, status: ResolutionStatus, comment: string) => {
-    // Update issue status
     setCurrentIssues(prev => prev.map(i => i.issueId === issueId ? { ...i, resolutionStatus: status } : i));
 
     if (selectedIssue && selectedIssue.issueId === issueId) {
@@ -490,7 +584,7 @@ export default function App() {
     const newHistory: ResolutionHistory = {
       resolutionId: `res-${Date.now()}`,
       issueId,
-      resolvedBy: 'Data Steward (QA Team)',
+      resolvedBy: `${currentUser.name} (${currentUser.employeeId})`,
       resolutionComment: comment,
       resolutionStatus: status,
       updatedAt: new Date().toISOString()
@@ -505,7 +599,6 @@ export default function App() {
     }
   };
 
-  // Edit existing audit log status & comment
   const handleEditAuditLog = async (resolutionId: string, status: ResolutionStatus, comment: string) => {
     let targetIssueId: string | undefined;
 
@@ -541,8 +634,13 @@ export default function App() {
     }
   };
 
-  // Delete an audit log
   const handleDeleteAuditLog = async (resolutionId: string) => {
+    // Only Admin can delete audit log history
+    if (currentUser.role !== 'ADMIN') {
+      alert('Unauthorized: Only System Administrators can delete audit logs.');
+      return;
+    }
+
     setResolutionHistories(prev => prev.filter(log => log.resolutionId !== resolutionId));
 
     try {
@@ -552,6 +650,93 @@ export default function App() {
     }
   };
 
+  const handleDeleteDataset = async (datasetId: string) => {
+    // Only Admin can delete custom datasets
+    if (currentUser.role !== 'ADMIN') {
+      alert('Unauthorized: Only System Administrators can delete uploaded tables.');
+      return;
+    }
+
+    const targetDataset = datasets.find(d => d.datasetId === datasetId);
+    if (!targetDataset) return;
+    if (targetDataset.isPreset) {
+      alert('Standard preset datasets cannot be deleted.');
+      return;
+    }
+
+    // Filter out target dataset
+    const remainingDatasets = datasets.filter(d => d.datasetId !== datasetId);
+    setDatasets(remainingDatasets);
+
+    // Filter out runs & issues for this dataset
+    setRuns(prev => prev.filter(r => r.datasetId !== datasetId));
+    setCurrentIssues(prev => prev.filter(i => i.datasetId !== datasetId));
+
+    // If currently active dataset is the one being deleted, fallback to the first preset
+    if (activeDatasetId === datasetId) {
+      const fallback = remainingDatasets.find(d => d.isPreset) || remainingDatasets[0] || SEED_DATASETS[0];
+      if (fallback) {
+        handleSelectDataset(fallback.datasetId);
+      }
+    }
+
+    // Notify backend
+    try {
+      await api.deleteDataset(datasetId);
+    } catch (e) {
+      console.warn('Dataset delete backend sync failed:', e);
+    }
+  };
+
+  const handleDeleteRun = async (runId: string) => {
+    // Only Admin can delete validation runs
+    if (currentUser.role !== 'ADMIN') {
+      alert('Unauthorized: Only System Administrators can delete validation runs.');
+      return;
+    }
+
+    setRuns(prev => prev.filter(r => r.runId !== runId));
+
+    try {
+      await api.deleteRun(runId);
+    } catch (e) {
+      console.warn('Run delete backend sync failed:', e);
+    }
+  };
+
+  // 1. Landing Page View
+  if (pageView === 'landing') {
+    return (
+      <LandingPageView
+        onGoToLogin={() => setPageView('login')}
+        onLaunchApp={() => setPageView('workspace')}
+        isAuthenticated={isAuthenticated}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
+      />
+    );
+  }
+
+  // 2. Dedicated Corporate Login Page
+  if (pageView === 'login') {
+    return (
+      <LoginPage
+        onLoginSuccess={(user) => {
+          setCurrentUser(user);
+          setIsAuthenticated(true);
+          try {
+            localStorage.setItem('silentguard_is_auth', 'true');
+          } catch {}
+          setPageView('workspace');
+        }}
+        onBackToLanding={() => setPageView('landing')}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
+      />
+    );
+  }
+
+  // 3. Authenticated Platform Workspace
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0b0c0e] text-slate-900 dark:text-zinc-100 flex flex-col selection:bg-red-600 selection:text-white">
       <Navbar
@@ -560,18 +745,17 @@ export default function App() {
         activeDataset={activeDataset}
         latestRun={latestRun}
         onOpenUpload={() => setIsUploadOpen(true)}
-        onOpenDisambiguator={() => {
-          setDisambiguatorValue('120');
-          setIsDisambiguatorOpen(true);
-        }}
         onRunValidation={() => handleExecuteValidation()}
         isValidating={isValidating}
         totalDatasetsCount={datasets.length}
         onSelectDataset={handleSelectDataset}
+        onDeleteDataset={handleDeleteDataset}
         allDatasets={datasets}
-        backendHealth={backendHealth}
         theme={theme}
         onToggleTheme={handleToggleTheme}
+        currentUser={currentUser}
+        onOpenAccountShowcase={() => setIsAccountShowcaseOpen(true)}
+        onGoToLanding={() => setPageView('landing')}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -579,7 +763,7 @@ export default function App() {
           <DashboardView
             activeDataset={activeDataset}
             latestRun={latestRun}
-            issues={currentIssues}
+            issues={activeDatasetIssues}
             activeRules={rules.filter(r => r.enabled)}
             onNavigateToTab={setActiveTab}
             onSelectIssue={setSelectedIssue}
@@ -591,7 +775,7 @@ export default function App() {
         {activeTab === 'explorer' && (
           <DataExplorerView
             dataset={activeDataset}
-            issues={currentIssues}
+            issues={activeDatasetIssues}
             onSelectIssue={setSelectedIssue}
             onUpdateDatasetRecords={handleUpdateDatasetRecords}
             onRunValidation={() => handleExecuteValidation()}
@@ -619,6 +803,9 @@ export default function App() {
         {activeTab === 'history' && (
           <RunHistoryView
             runs={runs}
+            allDatasets={datasets}
+            currentUser={currentUser}
+            onDeleteRun={handleDeleteRun}
           />
         )}
 
@@ -626,11 +813,19 @@ export default function App() {
           <ExportAuditView
             dataset={activeDataset}
             latestRun={latestRun}
-            issues={currentIssues}
+            issues={activeDatasetIssues}
             rules={rules}
             resolutionHistories={resolutionHistories}
+            currentUser={currentUser}
             onEditAuditLog={handleEditAuditLog}
             onDeleteAuditLog={handleDeleteAuditLog}
+          />
+        )}
+
+        {activeTab === 'users' && currentUser.role === 'ADMIN' && (
+          <UserManagementView
+            currentUser={currentUser}
+            onUserChanged={(u) => setCurrentUser(u)}
           />
         )}
       </main>
@@ -646,6 +841,33 @@ export default function App() {
         isOpen={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}
         onDatasetCreated={handleDatasetCreated}
+        currentUser={currentUser}
+      />
+
+      {/* Account Showcase Modal (Opens from Navbar button) */}
+      <AccountShowcaseModal
+        isOpen={isAccountShowcaseOpen}
+        onClose={() => setIsAccountShowcaseOpen(false)}
+        currentUser={currentUser}
+        onSignOut={() => {
+          setIsAccountShowcaseOpen(false);
+          setIsAuthenticated(false);
+          try {
+            localStorage.setItem('silentguard_is_auth', 'false');
+          } catch {}
+          setPageView('login');
+        }}
+      />
+
+      {/* Categorized Sign In Modal */}
+      <SignInModal
+        isOpen={isSignInOpen}
+        onClose={() => setIsSignInOpen(false)}
+        canDismiss={true}
+        onSignIn={(user) => {
+          setCurrentUser(user);
+          setIsSignInOpen(false);
+        }}
       />
 
       <ContextualDisambiguatorModal

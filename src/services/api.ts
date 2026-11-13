@@ -254,6 +254,16 @@ export const api = {
     });
   },
 
+  async deleteDataset(datasetId: string): Promise<void> {
+    try {
+      await fetch(`${API_BASE_URL}/datasets/${datasetId}`, {
+        method: 'DELETE'
+      });
+    } catch {
+      // Backend may be offline; silently fallback
+    }
+  },
+
   async fetchRules(): Promise<ValidationRule[]> {
     const res = await fetch(`${API_BASE_URL}/rules`);
     if (!res.ok) throw new Error('Failed to fetch validation rules from backend');
@@ -375,5 +385,15 @@ export const api = {
       method: 'DELETE'
     });
     if (!res.ok) throw new Error('Failed to delete resolution');
+  },
+
+  async deleteRun(runId: string): Promise<void> {
+    try {
+      await fetch(`${API_BASE_URL}/validation/runs/${runId}`, {
+        method: 'DELETE'
+      });
+    } catch {
+      // Backend may be offline; silently fallback
+    }
   }
 };

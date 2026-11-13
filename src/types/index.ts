@@ -52,6 +52,9 @@ export interface Dataset {
   datasetId: string;
   fileName: string;
   uploadedBy: string;
+  uploadedById?: string; // Employee ID or User ID who uploaded this table
+  uploadedByEmail?: string;
+  isPreset?: boolean; // True for standard benchmark presets available to all
   uploadTime: string;
   fileType: string;
   rowCount: number;
@@ -119,6 +122,9 @@ export interface ValidationRun {
   totalIssuesCount: number;
   executionTimeMs: number;
   ruleCountExecuted: number;
+  executedBy?: string; // Employee ID or name of user who triggered the run
+  executedById?: string;
+  executedByEmail?: string;
 }
 
 export interface DepartmentReference {
@@ -177,4 +183,30 @@ export interface ValueDisambiguationResult {
   testedValue: string;
   evaluations: ColumnDisambiguationEvaluation[];
 }
+
+export type UserRole = 'ADMIN' | 'STEWARD' | 'VIEWER';
+
+export interface EmployeeUser {
+  id: string;
+  employeeId: string; // e.g. "MS-ADMIN-001"
+  name: string;
+  email: string; // e.g. "rajesh.sharma@motherson.com"
+  role: UserRole;
+  division: string;
+  plantLocation?: string;
+  status: 'ACTIVE' | 'SUSPENDED';
+  createdDate: string;
+  lastLogin?: string;
+  avatarColor?: string;
+}
+
+export type AuthPermission = 
+  | 'upload_data'
+  | 'manage_rules'
+  | 'resolve_issues'
+  | 'manage_users'
+  | 'delete_audit'
+  | 'export_reports'
+  | 'view_data';
+
 

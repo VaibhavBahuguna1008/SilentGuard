@@ -8,7 +8,9 @@ import {
   FileSpreadsheet, 
   Layers, 
   RotateCw,
-  Check
+  Check,
+  Play,
+  HelpCircle
 } from 'lucide-react';
 import { Dataset, ValidationRun, ValidationIssue, ValidationRule } from '../types';
 
@@ -33,37 +35,62 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onRunValidation,
   isValidating,
 }) => {
+  // Ensure the latest run matches THIS active dataset specifically
+  const isCurrentRunMatching = latestRun !== null && latestRun.datasetId === activeDataset.datasetId;
+
+  // Filter issues strictly belonging to the active dataset
+  const activeDatasetIssues = useMemo(() => {
+    return isCurrentRunMatching ? issues.filter(i => i.datasetId === activeDataset.datasetId) : [];
+  }, [issues, isCurrentRunMatching, activeDataset.datasetId]);
+
   const totalRecords = activeDataset.rowCount;
-  const failedRecords = latestRun?.failedRecords ?? issues.reduce((acc, curr) => {
-    return acc.add(curr.rowNumber);
-  }, new Set<number>()).size;
-  const passedRecords = Math.max(0, totalRecords - failedRecords);
-  const healthScore = latestRun?.healthScore ?? (
-    totalRecords > 0 ? Math.round((passedRecords / totalRecords) * 100) : 100
-  );
 
-  const criticalIssuesCount = issues.filter(i => i.severity === 'CRITICAL').length;
-  const errorIssuesCount = issues.filter(i => i.severity === 'ERROR').length;
-  const warningIssuesCount = issues.filter(i => i.severity === 'WARNING').length;
-  const totalIssuesCount = issues.length;
+  // Calculate failed records from unique row numbers of active issues
+  const failedRecordRows = useMemo(() => {
+    return new Set(activeDatasetIssues.map(i => i.rowNumber));
+  }, [activeDatasetIssues]);
 
-  const executionTimeMs = latestRun?.executionTimeMs ?? 14;
-  const runNumber = latestRun?.runNumber ?? 1;
+  const failedRecords = isCurrentRunMatching 
+    ? (latestRun.failedRecords ?? failedRecordRows.size)
+    : 0;
+  
+  const passedRecords = isCurrentRunMatching 
+    ? Math.max(0, totalRecords - failedRecords)
+    : totalRecords;
 
-  // Breakdown by category
+  const healthScore = isCurrentRunMatching
+    ? latestRun.healthScore
+    : 100;
+
+  const criticalIssuesCount = activeDatasetIssues.filter(i => i.severity === 'CRITICAL').length;
+  const errorIssuesCount = activeDatasetIssues.filter(i => i.severity === 'ERROR').length;
+  const warningIssuesCount = activeDatasetIssues.filter(i => i.severity === 'WARNING').length;
+  const totalIssuesCount = activeDatasetIssues.length;
+
+  const executionTimeMs = isCurrentRunMatching ? (latestRun.executionTimeMs ?? 0) : 0;
+  const runNumber = isCurrentRunMatching ? (latestRun.runNumber ?? 1) : 0;
+
+  // Breakdown strictly by category of active issues
   const categories = useMemo(() => {
     const categoryCounts: Record<string, number> = {};
-    for (const i of issues) {
-      categoryCounts[i.category] = (categoryCounts[i.category] || 0) + 1;
+    for (const i of activeDatasetIssues) {
+      if (i.category) {
+        categoryCounts[i.category] = (categoryCounts[i.category] || 0) + 1;
+      }
     }
     return Object.entries(categoryCounts).sort((a, b) => b[1] - a[1]);
-  }, [issues]);
+  }, [activeDatasetIssues]);
 
-  // Health status badge
+  // Health status badge calculation
   let healthColor = 'text-emerald-700 dark:text-emerald-400';
   let healthBg = 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30';
   let healthLabel = 'Clean / Production Ready';
-  if (healthScore < 60) {
+
+  if (!isCurrentRunMatching) {
+    healthColor = 'text-blue-700 dark:text-blue-400';
+    healthBg = 'bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/30';
+    healthLabel = 'Ready for Validation';
+  } else if (healthScore < 60) {
     healthColor = 'text-red-700 dark:text-rose-400';
     healthBg = 'bg-red-50 dark:bg-rose-500/10 border-red-200 dark:border-rose-500/30';
     healthLabel = 'Critical Contamination';
@@ -77,8 +104,44 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Silent Failure Primary Alert Banner */}
-      {totalIssuesCount > 0 && activeDataset.reportedSuccess && (
+      {/* 1. Pending Validation Notice Banner (Shown when user has loaded/selected dataset but hasn't clicked Validate yet) */}
+      {!isCurrentRunMatching && (
+        <div className="rounded-2xl bg-gradient-to-r from-blue-50 via-white to-slate-50 dark:from-blue-950/40 dark:via-[#14151b] dark:to-zinc-900 border border-blue-200 dark:border-blue-500/30 p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start space-x-3.5">
+            <div className="p-2.5 rounded-xl bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5">
+              <Play className="w-5 h-5 fill-current" />
+            </div>
+            <div>
+              <div className="flex items-center space-x-2">
+                <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800/40 font-mono">
+                  AWAITING VALIDATION
+                </span>
+                <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">
+                  {totalRecords} records ready in {activeDataset.fileName}
+                </span>
+              </div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white mt-1">
+                Data Loaded • Quality Gateway Armed with {activeRules.length} Rules
+              </h3>
+              <p className="text-xs text-slate-600 dark:text-zinc-400 mt-0.5">
+                Click the <strong>Validate</strong> button to execute rule validation and detect silent failures.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={onRunValidation}
+            disabled={isValidating}
+            className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-[#e31b23] hover:bg-[#c41219] text-white transition shadow-md shadow-red-950/30 cursor-pointer border border-red-500/40 shrink-0"
+          >
+            <Play className={`w-3.5 h-3.5 ${isValidating ? 'animate-spin' : 'fill-current'}`} />
+            <span>{isValidating ? 'Validating Dataset...' : 'Validate Active Dataset'}</span>
+          </button>
+        </div>
+      )}
+
+      {/* 2. Silent Failure Flagged Banner (ONLY shown when there ARE actual violations and ETL reported HTTP 200) */}
+      {isCurrentRunMatching && totalIssuesCount > 0 && activeDataset.reportedSuccess && (
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-red-50 via-white to-red-50/40 dark:from-red-950/70 dark:via-[#14151b] dark:to-zinc-900 border border-red-200 dark:border-red-600/50 p-5 shadow-sm dark:shadow-xl">
           <div className="absolute -right-8 -top-8 w-40 h-40 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
           <div className="flex items-start space-x-4">
@@ -95,13 +158,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </span>
               </div>
               <h3 className="text-base font-bold text-slate-900 dark:text-white mt-1.5">
-                Data Transfer Succeeded, But Business Rules Were Corrupted
+                Data Ingestion Succeeded, But Business Rules Were Corrupted
               </h3>
               <p className="text-xs text-slate-700 dark:text-zinc-300 mt-1 leading-relaxed">
                 The file transfer reported success, but SilentGuard detected{' '}
                 <strong className="text-red-700 dark:text-red-400 font-bold">{totalIssuesCount} rule violations</strong> across{' '}
                 <strong className="text-red-700 dark:text-red-400 font-bold">{failedRecords} records</strong> ({criticalIssuesCount} Critical, {errorIssuesCount} Error). 
-                Without this validation layer, downstream systems would have processed invalid part specifications, duplicate IDs, and missing mandatory fields silently.
+                Without this validation layer, downstream systems would process invalid specifications, duplicate IDs, or out-of-range figures silently.
               </p>
               <div className="mt-3.5 flex items-center space-x-3">
                 <button
@@ -129,7 +192,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="flex items-baseline space-x-2">
             <span className={`text-4xl font-extrabold font-mono tracking-tight ${healthColor}`}>
-              {healthScore}%
+              {isCurrentRunMatching ? `${healthScore}%` : '100%'}
             </span>
             <span className="text-xs text-slate-500 dark:text-zinc-500 font-mono">/ 100 max</span>
           </div>
@@ -137,13 +200,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="w-full bg-slate-100 dark:bg-zinc-800 rounded-full h-2 mt-4 overflow-hidden">
             <div 
               className={`h-full transition-all duration-500 rounded-full ${
-                healthScore >= 85 ? 'bg-emerald-500' : healthScore >= 60 ? 'bg-amber-500' : 'bg-[#e31b23]'
+                !isCurrentRunMatching ? 'bg-blue-500' : (healthScore >= 85 ? 'bg-emerald-500' : healthScore >= 60 ? 'bg-amber-500' : 'bg-[#e31b23]')
               }`}
-              style={{ width: `${healthScore}%` }}
+              style={{ width: `${isCurrentRunMatching ? healthScore : 100}%` }}
             />
           </div>
           <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-2 font-mono">
-            Run #{runNumber} • {activeRules.length} rules in {executionTimeMs}ms
+            {isCurrentRunMatching 
+              ? `Run #${runNumber} • ${activeRules.length} rules in ${executionTimeMs}ms` 
+              : `Armed with ${activeRules.length} rules`}
           </p>
         </div>
 
@@ -208,11 +273,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             {activeDataset.fileName}
           </p>
           <p className="text-xs text-slate-600 dark:text-zinc-400 mt-1 truncate">
-            {activeDataset.columns.length} columns • {activeDataset.sourceSystem || 'Direct CSV'}
+            {activeDataset.columns.length} columns • {activeDataset.sourceSystem || 'Direct Ingestion'}
           </p>
           <div className="mt-4 pt-2 border-t border-slate-200 dark:border-[#242630] flex items-center justify-between">
             <span className="text-[10px] text-slate-500 dark:text-zinc-400 font-mono">
-              RFC-4180 Pure Engine
+              RFC-4180 / XLSX
             </span>
             <button
               onClick={onRunValidation}
@@ -220,7 +285,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               className="text-xs font-semibold text-[#e31b23] hover:text-[#c41219] inline-flex items-center space-x-1 cursor-pointer"
             >
               <RotateCw className={`w-3 h-3 ${isValidating ? 'animate-spin' : ''}`} />
-              <span>Re-run</span>
+              <span>{isCurrentRunMatching ? 'Re-run' : 'Validate'}</span>
             </button>
           </div>
         </div>
@@ -240,9 +305,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </span>
           </div>
 
-          {categories.length === 0 ? (
+          {!isCurrentRunMatching ? (
             <div className="text-center py-8 text-xs text-slate-500 dark:text-zinc-400">
-              <Check className="w-6 h-6 text-emerald-500 mx-auto mb-1" />
+              <HelpCircle className="w-6 h-6 text-blue-400 mx-auto mb-1.5" />
+              Validation pending. Click &quot;Validate&quot; in the navbar to categorize records.
+            </div>
+          ) : categories.length === 0 ? (
+            <div className="text-center py-8 text-xs text-slate-500 dark:text-zinc-400">
+              <Check className="w-6 h-6 text-emerald-500 mx-auto mb-1.5" />
               All data adheres to configured category constraints.
             </div>
           ) : (
@@ -296,22 +366,30 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 onClick={() => onNavigateToTab('explorer')}
                 className="text-xs font-semibold text-[#e31b23] hover:text-[#c41219] inline-flex items-center space-x-1 cursor-pointer"
               >
-                <span>View All ({issues.length})</span>
+                <span>View All ({activeDatasetIssues.length})</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            {issues.length === 0 ? (
+            {!isCurrentRunMatching ? (
+              <div className="p-8 text-center bg-slate-50 dark:bg-[#0d0e12] rounded-xl border border-slate-200 dark:border-[#242630]">
+                <Clock className="w-8 h-8 text-blue-500 mx-auto mb-2" />
+                <h5 className="text-sm font-bold text-slate-900 dark:text-white">Validation Not Yet Executed</h5>
+                <p className="text-xs text-slate-600 dark:text-zinc-400 max-w-sm mx-auto mt-1">
+                  This dataset has not been validated in the current session. Click the &quot;Validate&quot; button in the top navigation bar to analyze records against business constraints.
+                </p>
+              </div>
+            ) : activeDatasetIssues.length === 0 ? (
               <div className="p-8 text-center bg-slate-50 dark:bg-[#0d0e12] rounded-xl border border-slate-200 dark:border-[#242630]">
                 <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
                 <h5 className="text-sm font-bold text-slate-900 dark:text-white">Zero Data Quality Defects Found</h5>
                 <p className="text-xs text-slate-600 dark:text-zinc-400 max-w-sm mx-auto mt-1">
-                  All {activeDataset.rowCount} records passed mandatory, uniqueness, format, range, and referential checks.
+                  All {activeDataset.rowCount} records passed mandatory, uniqueness, format, range, and referential checks with 100% compliance.
                 </p>
               </div>
             ) : (
               <div className="space-y-2 overflow-y-auto max-h-[300px] pr-1">
-                {issues.slice(0, 5).map(issue => (
+                {activeDatasetIssues.slice(0, 5).map(issue => (
                   <div
                     key={issue.issueId}
                     onClick={() => onSelectIssue(issue)}
@@ -362,7 +440,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           <div className="mt-4 pt-3 border-t border-slate-200 dark:border-[#242630] flex items-center justify-between text-xs text-slate-500 dark:text-zinc-400">
             <span>
-              Showing {Math.min(5, issues.length)} of {issues.length} detected exceptions
+              Showing {Math.min(5, activeDatasetIssues.length)} of {activeDatasetIssues.length} detected exceptions
             </span>
             <button
               onClick={() => onNavigateToTab('explorer')}
